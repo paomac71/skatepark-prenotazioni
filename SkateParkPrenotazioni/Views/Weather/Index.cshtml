@@ -1,0 +1,41 @@
+@model SkateParkPrenotazioni.ViewModels.WeatherForecastViewModel
+@{
+    ViewData["Title"] = "Previsioni meteo";
+}
+
+<h1>Previsioni settimanali</h1>
+<p class="text-muted">
+    Fonte Open-Meteo · coordinate @Model.Latitude.ToString("0.####"), @Model.Longitude.ToString("0.####")
+    (@Model.Timezone)
+</p>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-warning">@Model.ErrorMessage</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Giorno</th>
+                    <th>Condizioni</th>
+                    <th>Min / Max (°C)</th>
+                    <th>Precipitazioni (mm)</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var day in Model.Days)
+            {
+                <tr>
+                    <td>@day.Date.ToString("dddd d MMMM", new System.Globalization.CultureInfo("it-IT"))</td>
+                    <td>@day.Description</td>
+                    <td>@day.TemperatureMinC.ToString("0.0") / @day.TemperatureMaxC.ToString("0.0")</td>
+                    <td>@day.PrecipitationMm.ToString("0.0")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

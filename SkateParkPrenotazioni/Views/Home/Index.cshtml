@@ -1,0 +1,16 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="text-center py-4">
+    <h1 class="display-5">Prenotazioni Skate Park</h1>
+    <p class="lead col-md-8 mx-auto">
+        Prenota lezioni private o di gruppo con i nostri istruttori.
+        Controlla anche le previsioni meteo della zona prima di scendere in park.
+    </p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap">
+        <a class="btn btn-primary btn-lg" asp-controller="Bookings" asp-action="Create">Prenota una lezione</a>
+        <a class="btn btn-outline-secondary btn-lg" asp-controller="Instructors" asp-action="Index">Vedi istruttori</a>
+        <a class="btn btn-outline-secondary btn-lg" asp-controller="Weather" asp-action="Index">Previsioni meteo</a>
+    </div>
+</div>

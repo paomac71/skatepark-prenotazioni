@@ -1,0 +1,11 @@
+@model SkateParkPrenotazioni.ViewModels.BookingFormViewModel
+@{
+    ViewData["Title"] = "Nuova prenotazione";
+}
+
+<h1>Nuova prenotazione</h1>
+<partial name="_BookingForm" model="Model" />
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
