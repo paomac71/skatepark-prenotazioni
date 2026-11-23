@@ -43,7 +43,9 @@ if (!string.IsNullOrWhiteSpace(googleClientId)
 
 builder.Services.Configure<WeatherOptions>(builder.Configuration.GetSection(WeatherOptions.SectionName));
 builder.Services.AddHttpClient<IWeatherService, OpenMeteoWeatherService>();
-builder.Services.AddScoped<BookingCapacityService>();
+builder.Services.AddScoped<IBookingCapacityService, BookingCapacityService>();
+builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<IInstructorService, InstructorService>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
@@ -84,3 +86,5 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.Run();
+
+public partial class Program;

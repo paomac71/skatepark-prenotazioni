@@ -3,14 +3,9 @@ using SkateParkPrenotazioni.Services;
 
 namespace SkateParkPrenotazioni.Controllers;
 
-public class WeatherController : Controller
+public class WeatherController(IWeatherService weatherService) : Controller
 {
-    private readonly IWeatherService _weatherService;
-
-    public WeatherController(IWeatherService weatherService)
-    {
-        _weatherService = weatherService;
-    }
+    private readonly IWeatherService _weatherService = weatherService;
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {

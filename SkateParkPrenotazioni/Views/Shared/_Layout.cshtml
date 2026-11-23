@@ -4,57 +4,49 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Skate Park Prenotazioni</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/SkateParkPrenotazioni.styles.css" asp-append-version="true" />
 </head>
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-dark border-bottom box-shadow mb-3">
-            <div class="container">
-                <a class="navbar-brand fw-semibold" asp-area="" asp-controller="Home" asp-action="Index">Skate Park</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Apri menu">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-controller="Instructors" asp-action="Index">Istruttori</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-controller="Bookings" asp-action="Index">Prenotazioni</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-light" asp-controller="Weather" asp-action="Index">Meteo</a>
-                        </li>
-                    </ul>
-                    <partial name="_LoginPartial" />
-                </div>
+<body class="flex min-h-screen flex-col dark:bg-asphalt dark:text-park-concrete">
+    <header class="sticky top-0 z-40 border-b border-white/50 bg-white/75 backdrop-blur-md dark:border-asphalt-muted/40 dark:bg-asphalt/80">
+        <nav class="page-shell flex items-center justify-between gap-4 py-3" aria-label="Principale">
+            <a class="font-display text-2xl uppercase tracking-wider text-primary focus:outline-none focus:ring-2 focus:ring-primary"
+               asp-area="" asp-controller="Home" asp-action="Index">
+                Skate Park
+            </a>
+            <button type="button" id="nav-toggle" class="btn-outline md:hidden" aria-controls="nav-menu" aria-expanded="false">
+                Menu
+            </button>
+            <div id="nav-menu" class="hidden w-full flex-col gap-2 md:flex md:w-auto md:flex-row md:items-center md:gap-1">
+                <a class="nav-link-park" asp-controller="Home" asp-action="Index">Home</a>
+                <a class="nav-link-park" asp-controller="Instructors" asp-action="Index">Istruttori</a>
+                <a class="nav-link-park" asp-controller="Bookings" asp-action="Index">Prenotazioni</a>
+                <a class="nav-link-park" asp-controller="Weather" asp-action="Index">Meteo</a>
+                <partial name="_LoginPartial" />
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @if (TempData["Success"] is string success)
-            {
-                <div class="alert alert-success">@success</div>
-            }
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Skate Park Prenotazioni —
-            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <main role="main" class="flex-1">
+        @if (TempData["Success"] is string success)
+        {
+            <div class="page-shell pb-0 pt-6">
+                <div class="alert-success" role="status">@success</div>
+            </div>
+        }
+        @RenderBody()
+    </main>
+
+    <footer class="mt-auto border-t border-asphalt/10 bg-white/60 dark:border-asphalt-muted/30 dark:bg-asphalt/90">
+        <div class="page-shell flex flex-col gap-2 py-6 text-sm text-asphalt-muted sm:flex-row sm:items-center sm:justify-between dark:text-park-concrete/70">
+            <p>&copy; 2026 Skate Park Prenotazioni</p>
+            <a asp-controller="Home" asp-action="Privacy" class="hover:text-primary">Privacy</a>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -2,15 +2,45 @@
     ViewData["Title"] = "Home";
 }
 
-<div class="text-center py-4">
-    <h1 class="display-5">Prenotazioni Skate Park</h1>
-    <p class="lead col-md-8 mx-auto">
-        Prenota lezioni private o di gruppo con i nostri istruttori.
-        Controlla anche le previsioni meteo della zona prima di scendere in park.
-    </p>
-    <div class="d-flex gap-2 justify-content-center flex-wrap">
-        <a class="btn btn-primary btn-lg" asp-controller="Bookings" asp-action="Create">Prenota una lezione</a>
-        <a class="btn btn-outline-secondary btn-lg" asp-controller="Instructors" asp-action="Index">Vedi istruttori</a>
-        <a class="btn btn-outline-secondary btn-lg" asp-controller="Weather" asp-action="Index">Previsioni meteo</a>
+<section class="relative isolate overflow-hidden bg-park-hero">
+    <div class="pointer-events-none absolute inset-0 opacity-40">
+        <div class="absolute -left-16 top-10 h-56 w-56 animate-soft-pulse rounded-full bg-park-sky blur-3xl"></div>
+        <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-accent/30 blur-3xl"></div>
     </div>
-</div>
+    <div class="page-shell relative flex min-h-[78vh] flex-col justify-center py-16 text-white">
+        <p class="animate-fade-up font-display text-5xl uppercase leading-none tracking-widest sm:text-7xl md:text-8xl">
+            Skate Park
+        </p>
+        <h1 class="animate-fade-up-delay mt-5 max-w-2xl text-2xl font-semibold text-white/95 sm:text-3xl">
+            Prenota la tua sessione in park
+        </h1>
+        <p class="animate-fade-up-delay mt-4 max-w-xl text-base text-white/85 sm:text-lg">
+            Lezioni private o di gruppo con istruttori dedicati. Aria aperta, ramp e progressi reali.
+        </p>
+        <div class="animate-fade-up-delay mt-8 flex flex-wrap gap-3">
+            <a class="btn-accent btn-lg" asp-controller="Bookings" asp-action="Create">Prenota una lezione</a>
+            <a class="btn-outline border-white/40 bg-white/10 text-white hover:bg-white/20" asp-controller="Instructors" asp-action="Index">
+                Vedi istruttori
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="page-shell grid gap-8 py-14 md:grid-cols-2">
+    <div>
+        <h2 class="text-3xl text-asphalt dark:text-park-concrete">Come funziona</h2>
+        <p class="mt-3 max-w-md text-asphalt-muted dark:text-park-concrete/70">
+            Scegli istruttore, durata e tipologia. Controlla il meteo della zona e scendi in park quando le condizioni sono buone.
+        </p>
+    </div>
+    <div class="flex flex-col gap-3 sm:flex-row md:flex-col lg:flex-row">
+        <a class="card-surface flex-1 transition hover:-translate-y-0.5 hover:shadow-md" asp-controller="Weather" asp-action="Index">
+            <h3 class="text-xl">Meteo settimanale</h3>
+            <p class="mt-2 text-sm text-asphalt-muted dark:text-park-concrete/70">Previsioni Open-Meteo sulla zona del park.</p>
+        </a>
+        <a class="card-surface flex-1 transition hover:-translate-y-0.5 hover:shadow-md" asp-controller="Bookings" asp-action="Index">
+            <h3 class="text-xl">Le tue prenotazioni</h3>
+            <p class="mt-2 text-sm text-asphalt-muted dark:text-park-concrete/70">Crea, modifica o annulla in autonomia.</p>
+        </a>
+    </div>
+</section>

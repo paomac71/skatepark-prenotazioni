@@ -4,14 +4,9 @@ using SkateParkPrenotazioni.Models;
 
 namespace SkateParkPrenotazioni.Services;
 
-public class BookingCapacityService
+public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityService
 {
-    private readonly ApplicationDbContext _db;
-
-    public BookingCapacityService(ApplicationDbContext db)
-    {
-        _db = db;
-    }
+    private readonly ApplicationDbContext _db = db;
 
     public async Task<(bool Ok, string? Error)> ValidateAsync(
         int instructorId,

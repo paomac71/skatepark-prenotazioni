@@ -3,8 +3,12 @@
     ViewData["Title"] = "Modifica prenotazione";
 }
 
-<h1>Modifica prenotazione</h1>
-<partial name="_BookingForm" model="Model" />
+<section class="page-shell max-w-3xl">
+    <h1 class="mb-6 text-4xl text-asphalt dark:text-park-concrete">Modifica prenotazione</h1>
+    <div class="card-surface">
+        <partial name="_BookingForm" model="Model" />
+    </div>
+</section>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

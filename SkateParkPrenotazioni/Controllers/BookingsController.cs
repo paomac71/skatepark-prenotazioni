@@ -1,171 +1,99 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using SkateParkPrenotazioni.Data;
-using SkateParkPrenotazioni.Models;
 using SkateParkPrenotazioni.Services;
 using SkateParkPrenotazioni.ViewModels;
 
 namespace SkateParkPrenotazioni.Controllers;
 
 [Authorize]
-public class BookingsController : Controller
+public class BookingsController(IBookingService bookingService) : Controller
 {
-    private readonly ApplicationDbContext _db;
-    private readonly BookingCapacityService _capacity;
+    private readonly IBookingService _bookingService = bookingService;
 
-    public BookingsController(ApplicationDbContext db, BookingCapacityService capacity)
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        _db = db;
-        _capacity = capacity;
-    }
-
-    public async Task<IActionResult> Index()
-    {
-        var userId = UserId();
-        var bookings = await _db.Bookings
-            .Include(b => b.Instructor)
-            .Include(b => b.LessonDuration)
-            .Where(b => b.UserId == userId)
-            .OrderByDescending(b => b.StartAt)
-            .ToListAsync();
-
+        var bookings = await _bookingService.GetUserBookingsAsync(UserId(), cancellationToken);
         return View(bookings);
     }
 
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(CancellationToken cancellationToken)
     {
-        return View(await BuildFormAsync(new BookingFormViewModel()));
+        var model = await _bookingService.PrepareFormAsync(new BookingFormViewModel(), cancellationToken);
+        return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(BookingFormViewModel model)
+    public async Task<IActionResult> Create(BookingFormViewModel model, CancellationToken cancellationToken)
     {
-        if (model.LessonType == LessonType.Privata)
-        {
-            model.Participants = 1;
-        }
+        NormalizePrivateLesson(model);
 
         if (!ModelState.IsValid)
         {
-            return View(await BuildFormAsync(model));
+            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
         }
 
-        var (ok, error) = await _capacity.ValidateAsync(
-            model.InstructorId, model.StartAt, model.Participants, model.LessonType);
-
+        var (ok, error) = await _bookingService.CreateAsync(UserId(), model, cancellationToken);
         if (!ok)
         {
             ModelState.AddModelError(string.Empty, error!);
-            return View(await BuildFormAsync(model));
+            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
         }
 
-        var booking = new Booking
-        {
-            UserId = UserId(),
-            InstructorId = model.InstructorId,
-            LessonDurationId = model.LessonDurationId,
-            LessonType = model.LessonType,
-            StartAt = model.StartAt,
-            Participants = model.Participants,
-            Notes = model.Notes,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _db.Bookings.Add(booking);
-        await _db.SaveChangesAsync();
         TempData["Success"] = "Prenotazione creata correttamente.";
         return RedirectToAction(nameof(Index));
     }
 
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(int id, CancellationToken cancellationToken)
     {
-        var booking = await FindOwnedAsync(id);
-        if (booking is null || booking.IsCancelled)
-        {
-            return NotFound();
-        }
-
-        var model = new BookingFormViewModel
-        {
-            Id = booking.Id,
-            InstructorId = booking.InstructorId,
-            LessonDurationId = booking.LessonDurationId,
-            LessonType = booking.LessonType,
-            StartAt = booking.StartAt,
-            Participants = booking.Participants,
-            Notes = booking.Notes
-        };
-
-        return View(await BuildFormAsync(model));
+        var model = await _bookingService.GetEditFormAsync(UserId(), id, cancellationToken);
+        return model is null ? NotFound() : View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, BookingFormViewModel model)
+    public async Task<IActionResult> Edit(int id, BookingFormViewModel model, CancellationToken cancellationToken)
     {
         if (id != model.Id)
         {
             return BadRequest();
         }
 
-        var booking = await FindOwnedAsync(id);
-        if (booking is null || booking.IsCancelled)
+        NormalizePrivateLesson(model);
+
+        if (!ModelState.IsValid)
+        {
+            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
+        }
+
+        var (ok, error, notFound) = await _bookingService.UpdateAsync(UserId(), id, model, cancellationToken);
+        if (notFound)
         {
             return NotFound();
         }
 
-        if (model.LessonType == LessonType.Privata)
-        {
-            model.Participants = 1;
-        }
-
-        if (!ModelState.IsValid)
-        {
-            return View(await BuildFormAsync(model));
-        }
-
-        var (ok, error) = await _capacity.ValidateAsync(
-            model.InstructorId, model.StartAt, model.Participants, model.LessonType, excludeBookingId: id);
-
         if (!ok)
         {
             ModelState.AddModelError(string.Empty, error!);
-            return View(await BuildFormAsync(model));
+            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
         }
 
-        booking.InstructorId = model.InstructorId;
-        booking.LessonDurationId = model.LessonDurationId;
-        booking.LessonType = model.LessonType;
-        booking.StartAt = model.StartAt;
-        booking.Participants = model.Participants;
-        booking.Notes = model.Notes;
-
-        await _db.SaveChangesAsync();
         TempData["Success"] = "Prenotazione aggiornata.";
         return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Cancel(int id)
+    public async Task<IActionResult> Cancel(int id, CancellationToken cancellationToken)
     {
-        var booking = await FindOwnedAsync(id);
-        if (booking is null)
+        var (ok, notFound) = await _bookingService.CancelAsync(UserId(), id, cancellationToken);
+        if (notFound || !ok)
         {
             return NotFound();
         }
 
-        if (!booking.IsCancelled)
-        {
-            booking.IsCancelled = true;
-            await _db.SaveChangesAsync();
-            TempData["Success"] = "Prenotazione annullata.";
-        }
-
+        TempData["Success"] = "Prenotazione annullata.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -173,33 +101,12 @@ public class BookingsController : Controller
         User.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? throw new InvalidOperationException("Utente non autenticato.");
 
-    private Task<Booking?> FindOwnedAsync(int id) =>
-        _db.Bookings.FirstOrDefaultAsync(b => b.Id == id && b.UserId == UserId());
-
-    private async Task<BookingFormViewModel> BuildFormAsync(BookingFormViewModel model)
+    private void NormalizePrivateLesson(BookingFormViewModel model)
     {
-        model.Instructors = await _db.Instructors
-            .Where(i => i.IsActive)
-            .OrderBy(i => i.Name)
-            .Select(i => new SelectListItem
-            {
-                Value = i.Id.ToString(),
-                Text = $"{i.Name} (max {i.MaxParticipants})",
-                Selected = i.Id == model.InstructorId
-            })
-            .ToListAsync();
-
-        model.Durations = await _db.LessonDurations
-            .Where(d => d.IsActive)
-            .OrderBy(d => d.Minutes)
-            .Select(d => new SelectListItem
-            {
-                Value = d.Id.ToString(),
-                Text = d.Label,
-                Selected = d.Id == model.LessonDurationId
-            })
-            .ToListAsync();
-
-        return model;
+        if (model.LessonType == Models.LessonType.Privata)
+        {
+            model.Participants = 1;
+            ModelState.Remove(nameof(model.Participants));
+        }
     }
 }
