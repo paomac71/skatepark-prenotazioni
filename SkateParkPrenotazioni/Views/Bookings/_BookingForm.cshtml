@@ -1,48 +1,48 @@
 @model SkateParkPrenotazioni.ViewModels.BookingFormViewModel
 
-<form asp-action="@(Model.Id.HasValue ? "Edit" : "Create")" method="post" class="col-lg-7">
+<form asp-action="@(Model.Id.HasValue ? "Edit" : "Create")" method="post" class="space-y-5">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <input type="hidden" asp-for="Id" />
 
-    <div class="mb-3">
-        <label asp-for="InstructorId" class="form-label"></label>
-        <select asp-for="InstructorId" asp-items="Model.Instructors" class="form-select"></select>
+    <div>
+        <label asp-for="InstructorId"></label>
+        <select asp-for="InstructorId" asp-items="Model.Instructors"></select>
         <span asp-validation-for="InstructorId" class="text-danger"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="LessonDurationId" class="form-label"></label>
-        <select asp-for="LessonDurationId" asp-items="Model.Durations" class="form-select"></select>
+    <div>
+        <label asp-for="LessonDurationId"></label>
+        <select asp-for="LessonDurationId" asp-items="Model.Durations"></select>
         <span asp-validation-for="LessonDurationId" class="text-danger"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="LessonType" class="form-label"></label>
-        <select asp-for="LessonType" asp-items="Html.GetEnumSelectList<SkateParkPrenotazioni.Models.LessonType>()" class="form-select"></select>
+    <div>
+        <label asp-for="LessonType"></label>
+        <select asp-for="LessonType" asp-items="Html.GetEnumSelectList<SkateParkPrenotazioni.Models.LessonType>()"></select>
         <span asp-validation-for="LessonType" class="text-danger"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="StartAt" class="form-label"></label>
-        <input asp-for="StartAt" class="form-control" type="datetime-local" />
+    <div>
+        <label asp-for="StartAt"></label>
+        <input asp-for="StartAt" type="datetime-local" />
         <span asp-validation-for="StartAt" class="text-danger"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="Participants" class="form-label"></label>
-        <input asp-for="Participants" class="form-control" min="1" />
-        <div class="form-text">Per lezioni private viene forzato a 1. Non superare la capienza dell'istruttore.</div>
+    <div>
+        <label asp-for="Participants"></label>
+        <input asp-for="Participants" min="1" />
+        <p class="form-text">Per lezioni private viene forzato a 1. Non superare la capienza dell'istruttore.</p>
         <span asp-validation-for="Participants" class="text-danger"></span>
     </div>
 
-    <div class="mb-3">
-        <label asp-for="Notes" class="form-label"></label>
-        <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+    <div>
+        <label asp-for="Notes"></label>
+        <textarea asp-for="Notes" rows="3"></textarea>
         <span asp-validation-for="Notes" class="text-danger"></span>
     </div>
 
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">Salva</button>
-        <a class="btn btn-outline-secondary" asp-action="Index">Torna all'elenco</a>
+    <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="btn-primary">Salva</button>
+        <a class="btn-outline" asp-action="Index">Torna all'elenco</a>
     </div>
 </form>

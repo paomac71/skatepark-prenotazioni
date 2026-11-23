@@ -1,26 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SkateParkPrenotazioni.Data;
+using SkateParkPrenotazioni.Services;
 
 namespace SkateParkPrenotazioni.Controllers;
 
-public class InstructorsController : Controller
+public class InstructorsController(IInstructorService instructorService) : Controller
 {
-    private readonly ApplicationDbContext _db;
+    private readonly IInstructorService _instructorService = instructorService;
 
-    public InstructorsController(ApplicationDbContext db)
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        _db = db;
-    }
-
-    public async Task<IActionResult> Index()
-    {
-        var instructors = await _db.Instructors
-            .AsNoTracking()
-            .Where(i => i.IsActive)
-            .OrderBy(i => i.Name)
-            .ToListAsync();
-
+        var instructors = await _instructorService.GetActiveAsync(cancellationToken);
         return View(instructors);
     }
 }

@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply font-sans text-asphalt bg-park-page antialiased min-h-screen;
+  }
+
+  h1, h2, h3 {
+    @apply font-display tracking-wide;
+  }
+
+  a {
+    @apply text-primary hover:text-primary-dark transition-colors;
+  }
+
+  /* Compatibilità pagine Identity (RCL Bootstrap) */
+  .form-control,
+  .form-select,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="datetime-local"],
+  input[type="number"],
+  select,
+  textarea {
+    @apply block w-full rounded-md border border-park-concrete bg-white px-3 py-2 text-asphalt shadow-sm
+      focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40;
+  }
+
+  .form-label,
+  label {
+    @apply mb-1 block text-sm font-medium text-asphalt;
+  }
+
+  .form-text {
+    @apply mt-1 text-sm text-asphalt-muted;
+  }
+
+  .text-danger,
+  .field-validation-error,
+  .validation-summary-errors {
+    @apply text-red-700;
+  }
+
+  .validation-summary-errors ul {
+    @apply list-disc pl-5;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition
+      focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground hover:bg-primary-dark;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent text-accent-foreground hover:bg-accent-dark;
+  }
+
+  .btn-outline {
+    @apply btn border border-asphalt/20 bg-white/70 text-asphalt hover:bg-white;
+  }
+
+  .btn-danger {
+    @apply btn border border-red-300 bg-white text-red-700 hover:bg-red-50;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .card-surface {
+    @apply rounded-xl border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm
+      dark:border-asphalt/40 dark:bg-asphalt/80 dark:text-park-concrete;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8;
+  }
+
+  .nav-link-park {
+    @apply rounded-md px-3 py-2 text-sm font-medium text-asphalt/90 hover:bg-white/70 hover:text-primary
+      focus:outline-none focus:ring-2 focus:ring-primary dark:text-park-concrete dark:hover:bg-asphalt-muted/40;
+  }
+
+  .alert-success {
+    @apply mb-4 rounded-md border border-primary/30 bg-primary/10 px-4 py-3 text-primary-dark;
+  }
+
+  .alert-warning {
+    @apply mb-4 rounded-md border border-accent/40 bg-accent/15 px-4 py-3 text-asphalt;
+  }
+}

@@ -1,41 +1,46 @@
 @model SkateParkPrenotazioni.ViewModels.WeatherForecastViewModel
 @{
     ViewData["Title"] = "Previsioni meteo";
+    var it = new System.Globalization.CultureInfo("it-IT");
 }
 
-<h1>Previsioni settimanali</h1>
-<p class="text-muted">
-    Fonte Open-Meteo · coordinate @Model.Latitude.ToString("0.####"), @Model.Longitude.ToString("0.####")
-    (@Model.Timezone)
-</p>
+<section class="page-shell">
+    <header class="mb-8 max-w-2xl">
+        <h1 class="text-4xl text-asphalt dark:text-park-concrete">Previsioni settimanali</h1>
+        <p class="mt-2 text-asphalt-muted dark:text-park-concrete/70">
+            Fonte Open-Meteo · coordinate @Model.Latitude.ToString("0.####"), @Model.Longitude.ToString("0.####")
+            (@Model.Timezone)
+        </p>
+    </header>
 
-@if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="alert alert-warning">@Model.ErrorMessage</div>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Giorno</th>
-                    <th>Condizioni</th>
-                    <th>Min / Max (°C)</th>
-                    <th>Precipitazioni (mm)</th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach (var day in Model.Days)
-            {
-                <tr>
-                    <td>@day.Date.ToString("dddd d MMMM", new System.Globalization.CultureInfo("it-IT"))</td>
-                    <td>@day.Description</td>
-                    <td>@day.TemperatureMinC.ToString("0.0") / @day.TemperatureMaxC.ToString("0.0")</td>
-                    <td>@day.PrecipitationMm.ToString("0.0")</td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
-}
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert-warning" role="alert">@Model.ErrorMessage</div>
+    }
+    else
+    {
+        <div class="overflow-x-auto rounded-xl border border-white/70 bg-white/80 shadow-sm dark:border-asphalt-muted/40 dark:bg-asphalt/70">
+            <table class="min-w-full text-left text-sm">
+                <thead class="border-b border-asphalt/10 bg-park-mist/80 font-display text-xs uppercase tracking-wider text-asphalt-muted dark:border-asphalt-muted/40 dark:bg-asphalt-muted/20 dark:text-park-concrete/70">
+                    <tr>
+                        <th class="px-4 py-3">Giorno</th>
+                        <th class="px-4 py-3">Condizioni</th>
+                        <th class="px-4 py-3">Min / Max (°C)</th>
+                        <th class="px-4 py-3">Precipitazioni (mm)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var day in Model.Days)
+                {
+                    <tr class="border-b border-asphalt/5 last:border-0 dark:border-asphalt-muted/20">
+                        <td class="px-4 py-3 font-medium capitalize">@day.Date.ToString("dddd d MMMM", it)</td>
+                        <td class="px-4 py-3">@day.Description</td>
+                        <td class="px-4 py-3">@day.TemperatureMinC.ToString("0.0") / @day.TemperatureMaxC.ToString("0.0")</td>
+                        <td class="px-4 py-3">@day.PrecipitationMm.ToString("0.0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
