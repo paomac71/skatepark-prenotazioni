@@ -1,0 +1,45 @@
+@model IReadOnlyList<SkateParkPrenotazioni.ViewModels.InstructorListItemViewModel>
+@{
+    ViewData["Title"] = "Scegli istruttore";
+}
+
+<section class="page-shell">
+    <header class="mb-8 max-w-2xl">
+        <p class="text-sm font-semibold uppercase tracking-wider text-primary">Passo 1 di 2</p>
+        <h1 class="mt-2 text-4xl text-asphalt dark:text-park-concrete">Scegli l'istruttore</h1>
+        <p class="mt-2 text-asphalt-muted dark:text-park-concrete/70">
+            Poi vedrai il calendario con i soli giorni disponibili e gli orari liberi.
+        </p>
+    </header>
+
+    @if (!Model.Any())
+    {
+        <div class="card-surface">
+            <p class="text-asphalt-muted dark:text-park-concrete/70">Nessun istruttore attivo al momento.</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            @foreach (var instructor in Model)
+            {
+                <article class="card-surface flex flex-col">
+                    <h2 class="text-2xl text-primary">@instructor.Name</h2>
+                    <p class="mt-2 flex-1 text-sm leading-relaxed text-asphalt-muted dark:text-park-concrete/75">@instructor.Bio</p>
+                    <p class="mt-4 text-sm font-semibold text-asphalt dark:text-park-concrete">
+                        Capienza max: <span class="text-primary">@instructor.MaxParticipants</span>
+                    </p>
+                    <a class="btn-primary mt-5"
+                       asp-action="Create"
+                       asp-route-instructorId="@instructor.Id">
+                        Continua al calendario
+                    </a>
+                </article>
+            }
+        </div>
+    }
+
+    <div class="mt-8">
+        <a class="btn-outline" asp-action="Index">Torna alle prenotazioni</a>
+    </div>
+</section>

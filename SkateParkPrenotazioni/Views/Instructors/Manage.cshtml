@@ -1,0 +1,41 @@
+@model IReadOnlyList<SkateParkPrenotazioni.ViewModels.InstructorManageItemViewModel>
+@{
+    ViewData["Title"] = "Gestione istruttori";
+}
+
+<section class="page-shell">
+    <header class="mb-8">
+        <h1 class="text-4xl text-asphalt dark:text-park-concrete">Gestione istruttori</h1>
+        <p class="mt-2 text-asphalt-muted dark:text-park-concrete/70">
+            Modifica scheda e giorni/orari di disponibilità.
+        </p>
+    </header>
+
+    <div class="overflow-x-auto rounded-xl border border-white/70 bg-white/80 shadow-sm dark:border-asphalt-muted/40 dark:bg-asphalt/70">
+        <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-asphalt/10 bg-park-mist/80 font-display text-xs uppercase tracking-wider text-asphalt-muted dark:border-asphalt-muted/40 dark:bg-asphalt-muted/20 dark:text-park-concrete/70">
+                <tr>
+                    <th class="px-4 py-3">Nome</th>
+                    <th class="px-4 py-3">Capienza</th>
+                    <th class="px-4 py-3">Finestre attive</th>
+                    <th class="px-4 py-3">Stato</th>
+                    <th class="px-4 py-3"><span class="sr-only">Azioni</span></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var item in Model)
+            {
+                <tr class="border-b border-asphalt/5 last:border-0 dark:border-asphalt-muted/20">
+                    <td class="px-4 py-3 font-medium">@item.Name</td>
+                    <td class="px-4 py-3">@item.MaxParticipants</td>
+                    <td class="px-4 py-3">@item.AvailabilityWindows</td>
+                    <td class="px-4 py-3">@(item.IsActive ? "Attivo" : "Disattivo")</td>
+                    <td class="px-4 py-3 text-right">
+                        <a class="btn-outline btn-sm" asp-action="Edit" asp-route-id="@item.Id">Modifica scheda</a>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>

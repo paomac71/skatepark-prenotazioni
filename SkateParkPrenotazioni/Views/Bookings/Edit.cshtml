@@ -1,15 +1,22 @@
-@model SkateParkPrenotazioni.ViewModels.BookingFormViewModel
+@model SkateParkPrenotazioni.ViewModels.BookingCalendarViewModel
 @{
     ViewData["Title"] = "Modifica prenotazione";
 }
 
-<section class="page-shell max-w-3xl">
-    <h1 class="mb-6 text-4xl text-asphalt dark:text-park-concrete">Modifica prenotazione</h1>
+<section class="page-shell max-w-4xl">
+    <header class="mb-6">
+        <h1 class="text-4xl text-asphalt dark:text-park-concrete">Modifica prenotazione</h1>
+        <p class="mt-2 text-asphalt-muted dark:text-park-concrete/70">
+            Istruttore: <span class="font-semibold text-primary">@Model.InstructorName</span>
+        </p>
+    </header>
+
     <div class="card-surface">
-        <partial name="_BookingForm" model="Model" />
+        <partial name="_BookingCalendarForm" model="Model" />
     </div>
 </section>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/booking-calendar.js" asp-append-version="true"></script>
 }

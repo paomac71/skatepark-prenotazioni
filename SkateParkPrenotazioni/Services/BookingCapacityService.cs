@@ -11,6 +11,7 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
     public async Task<(bool Ok, string? Error)> ValidateAsync(
         int instructorId,
         DateTime startAt,
+        int durationMinutes,
         int participants,
         LessonType lessonType,
         int? excludeBookingId = null,
@@ -25,6 +26,11 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
             return (false, "Istruttore non trovato o non attivo.");
         }
 
+        if (durationMinutes <= 0)
+        {
+            return (false, "Durata lezione non valida.");
+        }
+
         if (lessonType == LessonType.Privata && participants != 1)
         {
             return (false, "Una lezione privata ammette un solo partecipante.");
@@ -35,17 +41,19 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
             return (false, $"L'istruttore ammette al massimo {instructor.MaxParticipants} partecipanti.");
         }
 
-        var query = _db.Bookings.AsNoTracking()
-            .Where(b => !b.IsCancelled
-                        && b.InstructorId == instructorId
-                        && b.StartAt == startAt);
-
-        if (excludeBookingId.HasValue)
+        if (startAt < DateTime.Now.AddMinutes(-1))
         {
-            query = query.Where(b => b.Id != excludeBookingId.Value);
+            return (false, "Non è possibile prenotare uno slot nel passato.");
         }
 
-        var occupied = await query.SumAsync(b => b.Participants, cancellationToken);
+        var slotEnd = startAt.AddMinutes(durationMinutes);
+        var occupied = await GetOccupiedParticipantsAsync(
+            instructorId,
+            startAt,
+            slotEnd,
+            excludeBookingId,
+            cancellationToken);
+
         if (occupied + participants > instructor.MaxParticipants)
         {
             var remaining = Math.Max(0, instructor.MaxParticipants - occupied);
@@ -55,5 +63,53 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
         }
 
         return (true, null);
+    }
+
+    public async Task<int> GetOccupiedParticipantsAsync(
+        int instructorId,
+        DateTime slotStart,
+        DateTime slotEnd,
+        int? excludeBookingId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var dayStart = slotStart.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        var bookings = await _db.Bookings
+            .AsNoTracking()
+            .Where(b => !b.IsCancelled
+                        && b.InstructorId == instructorId
+                        && b.StartAt >= dayStart
+                        && b.StartAt < dayEnd)
+            .Select(b => new
+            {
+                b.Id,
+                b.StartAt,
+                b.Participants,
+                Minutes = b.LessonDuration != null ? b.LessonDuration.Minutes : 0
+            })
+            .ToListAsync(cancellationToken);
+
+        var occupied = 0;
+        foreach (var booking in bookings)
+        {
+            if (excludeBookingId.HasValue && booking.Id == excludeBookingId.Value)
+            {
+                continue;
+            }
+
+            if (booking.Minutes <= 0)
+            {
+                continue;
+            }
+
+            var bookingEnd = booking.StartAt.AddMinutes(booking.Minutes);
+            if (booking.StartAt < slotEnd && bookingEnd > slotStart)
+            {
+                occupied += booking.Participants;
+            }
+        }
+
+        return occupied;
     }
 }

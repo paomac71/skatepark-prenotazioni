@@ -1,0 +1,150 @@
+@model SkateParkPrenotazioni.ViewModels.InstructorEditViewModel
+@{
+    ViewData["Title"] = "Modifica istruttore";
+    var dayNames = new Dictionary<DayOfWeek, string>
+    {
+        [DayOfWeek.Monday] = "Lunedì",
+        [DayOfWeek.Tuesday] = "Martedì",
+        [DayOfWeek.Wednesday] = "Mercoledì",
+        [DayOfWeek.Thursday] = "Giovedì",
+        [DayOfWeek.Friday] = "Venerdì",
+        [DayOfWeek.Saturday] = "Sabato",
+        [DayOfWeek.Sunday] = "Domenica"
+    };
+}
+
+<section class="page-shell max-w-3xl">
+    <header class="mb-6">
+        <h1 class="text-4xl text-asphalt dark:text-park-concrete">Scheda istruttore</h1>
+        <p class="mt-2 text-asphalt-muted dark:text-park-concrete/70">
+            Aggiorna profilo e fasce orarie settimanali disponibili per le prenotazioni.
+        </p>
+    </header>
+
+    <form asp-action="Edit" method="post" class="card-surface space-y-6" id="instructor-edit-form">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <input type="hidden" asp-for="Id" />
+
+        <div>
+            <label asp-for="Name"></label>
+            <input asp-for="Name" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Bio"></label>
+            <textarea asp-for="Bio" rows="3"></textarea>
+            <span asp-validation-for="Bio" class="text-danger"></span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label asp-for="MaxParticipants"></label>
+                <input asp-for="MaxParticipants" min="1" max="50" />
+                <span asp-validation-for="MaxParticipants" class="text-danger"></span>
+            </div>
+            <div class="flex items-end pb-2">
+                <label class="inline-flex items-center gap-2 font-medium">
+                    <input asp-for="IsActive" class="h-4 w-4" />
+                    @Html.DisplayNameFor(m => m.IsActive)
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-xl text-asphalt dark:text-park-concrete">Disponibilità settimanale</h2>
+                <button type="button" class="btn-outline btn-sm" id="add-availability">Aggiungi fascia</button>
+            </div>
+            <p class="form-text mb-4">Solo i giorni con almeno una fascia attiva risultano prenotabili nel calendario.</p>
+
+            <div id="availability-rows" class="space-y-3">
+                @for (var i = 0; i < Model.Availabilities.Count; i++)
+                {
+                    <div class="availability-row grid grid-cols-1 gap-3 rounded border border-asphalt/10 bg-white/70 p-3 sm:grid-cols-12 dark:border-asphalt-muted/30 dark:bg-asphalt/50">
+                        <input type="hidden" name="Availabilities[@i].Id" value="@Model.Availabilities[i].Id" />
+                        <div class="sm:col-span-3">
+                            <label class="text-xs">Giorno</label>
+                            <select name="Availabilities[@i].DayOfWeek" class="mt-1">
+                                @foreach (var day in dayNames)
+                                {
+                                    if (Model.Availabilities[i].DayOfWeek == day.Key)
+                                    {
+                                        <option value="@((int)day.Key)" selected>@day.Value</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@((int)day.Key)">@day.Value</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="text-xs">Inizio</label>
+                            <input type="time" name="Availabilities[@i].StartTime" class="mt-1"
+                                   value="@Model.Availabilities[i].StartTime.ToString(@"hh\:mm")" />
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="text-xs">Fine</label>
+                            <input type="time" name="Availabilities[@i].EndTime" class="mt-1"
+                                   value="@Model.Availabilities[i].EndTime.ToString(@"hh\:mm")" />
+                        </div>
+                        <div class="flex items-end gap-3 sm:col-span-3">
+                            <label class="inline-flex items-center gap-2 text-sm">
+                                <input type="hidden" name="Availabilities[@i].IsActive" value="false" />
+                                <input type="checkbox" name="Availabilities[@i].IsActive" value="true" class="h-4 w-4"
+                                       @(Model.Availabilities[i].IsActive ? "checked" : null) />
+                                Attiva
+                            </label>
+                            <button type="button" class="btn-danger btn-sm remove-availability">Rimuovi</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 pt-2">
+            <button type="submit" class="btn-primary">Salva scheda</button>
+            <a class="btn-outline" asp-action="Manage">Annulla</a>
+        </div>
+    </form>
+</section>
+
+<template id="availability-row-template">
+    <div class="availability-row grid grid-cols-1 gap-3 rounded border border-asphalt/10 bg-white/70 p-3 sm:grid-cols-12 dark:border-asphalt-muted/30 dark:bg-asphalt/50">
+        <input type="hidden" data-name="Id" value="" />
+        <div class="sm:col-span-3">
+            <label class="text-xs">Giorno</label>
+            <select data-name="DayOfWeek" class="mt-1">
+                <option value="1">Lunedì</option>
+                <option value="2">Martedì</option>
+                <option value="3">Mercoledì</option>
+                <option value="4">Giovedì</option>
+                <option value="5">Venerdì</option>
+                <option value="6">Sabato</option>
+                <option value="0">Domenica</option>
+            </select>
+        </div>
+        <div class="sm:col-span-3">
+            <label class="text-xs">Inizio</label>
+            <input type="time" data-name="StartTime" class="mt-1" value="09:00" />
+        </div>
+        <div class="sm:col-span-3">
+            <label class="text-xs">Fine</label>
+            <input type="time" data-name="EndTime" class="mt-1" value="12:00" />
+        </div>
+        <div class="flex items-end gap-3 sm:col-span-3">
+            <label class="inline-flex items-center gap-2 text-sm">
+                <input type="hidden" data-name="IsActive" value="false" />
+                <input type="checkbox" data-name="IsActive" value="true" class="h-4 w-4" checked />
+                Attiva
+            </label>
+            <button type="button" class="btn-danger btn-sm remove-availability">Rimuovi</button>
+        </div>
+    </div>
+</template>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/instructor-availability.js" asp-append-version="true"></script>
+}

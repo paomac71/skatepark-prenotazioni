@@ -22,6 +22,10 @@
             <div id="nav-menu" class="hidden w-full flex-col gap-2 md:flex md:w-auto md:flex-row md:items-center md:gap-1">
                 <a class="nav-link-park" asp-controller="Home" asp-action="Index">Home</a>
                 <a class="nav-link-park" asp-controller="Instructors" asp-action="Index">Istruttori</a>
+                @if (User.IsInRole(SkateParkPrenotazioni.Models.AppRoles.Admin))
+                {
+                    <a class="nav-link-park" asp-controller="Instructors" asp-action="Manage">Gestione istruttori</a>
+                }
                 <a class="nav-link-park" asp-controller="Bookings" asp-action="Index">Prenotazioni</a>
                 <a class="nav-link-park" asp-controller="Weather" asp-action="Index">Meteo</a>
                 <partial name="_LoginPartial" />

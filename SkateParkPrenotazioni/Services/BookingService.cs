@@ -9,10 +9,12 @@ namespace SkateParkPrenotazioni.Services;
 public class BookingService(
     ApplicationDbContext db,
     IBookingCapacityService capacity,
+    IAvailabilityService availability,
     ILogger<BookingService> logger) : IBookingService
 {
     private readonly ApplicationDbContext _db = db;
     private readonly IBookingCapacityService _capacity = capacity;
+    private readonly IAvailabilityService _availability = availability;
     private readonly ILogger<BookingService> _logger = logger;
 
     public async Task<IReadOnlyList<BookingListItemViewModel>> GetUserBookingsAsync(
@@ -64,7 +66,25 @@ public class BookingService(
             })
             .ToListAsync(cancellationToken);
 
+        if (model.LessonDurationId == 0)
+        {
+            var firstDuration = model.Durations.FirstOrDefault();
+            if (firstDuration is not null && int.TryParse(firstDuration.Value, out var durationId))
+            {
+                model.LessonDurationId = durationId;
+            }
+        }
+
         return model;
+    }
+
+    public async Task<int?> GetDurationMinutesAsync(int lessonDurationId, CancellationToken cancellationToken = default)
+    {
+        return await _db.LessonDurations
+            .AsNoTracking()
+            .Where(d => d.Id == lessonDurationId && d.IsActive)
+            .Select(d => (int?)d.Minutes)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<(bool Ok, string? Error)> CreateAsync(
@@ -74,9 +94,31 @@ public class BookingService(
     {
         NormalizeParticipants(model);
 
+        if (model.StartAt is null)
+        {
+            return (false, "Seleziona un orario libero dal calendario.");
+        }
+
+        var startAt = model.StartAt.Value;
+        var durationMinutes = await GetDurationMinutesAsync(model.LessonDurationId, cancellationToken);
+        if (durationMinutes is null)
+        {
+            return (false, "Durata lezione non valida.");
+        }
+
+        if (!await _availability.IsWithinAvailabilityAsync(
+                model.InstructorId,
+                startAt,
+                durationMinutes.Value,
+                cancellationToken))
+        {
+            return (false, "Lo slot selezionato non rientra nei giorni/orari disponibili dell'istruttore.");
+        }
+
         var (ok, error) = await _capacity.ValidateAsync(
             model.InstructorId,
-            model.StartAt,
+            startAt,
+            durationMinutes.Value,
             model.Participants,
             model.LessonType,
             cancellationToken: cancellationToken);
@@ -92,7 +134,7 @@ public class BookingService(
             InstructorId = model.InstructorId,
             LessonDurationId = model.LessonDurationId,
             LessonType = model.LessonType,
-            StartAt = model.StartAt,
+            StartAt = startAt,
             Participants = model.Participants,
             Notes = model.Notes,
             CreatedAt = DateTime.UtcNow
@@ -143,9 +185,31 @@ public class BookingService(
 
         NormalizeParticipants(model);
 
+        if (model.StartAt is null)
+        {
+            return (false, "Seleziona un orario libero dal calendario.", false);
+        }
+
+        var startAt = model.StartAt.Value;
+        var durationMinutes = await GetDurationMinutesAsync(model.LessonDurationId, cancellationToken);
+        if (durationMinutes is null)
+        {
+            return (false, "Durata lezione non valida.", false);
+        }
+
+        if (!await _availability.IsWithinAvailabilityAsync(
+                model.InstructorId,
+                startAt,
+                durationMinutes.Value,
+                cancellationToken))
+        {
+            return (false, "Lo slot selezionato non rientra nei giorni/orari disponibili dell'istruttore.", false);
+        }
+
         var (ok, error) = await _capacity.ValidateAsync(
             model.InstructorId,
-            model.StartAt,
+            startAt,
+            durationMinutes.Value,
             model.Participants,
             model.LessonType,
             excludeBookingId: id,
@@ -159,7 +223,7 @@ public class BookingService(
         booking.InstructorId = model.InstructorId;
         booking.LessonDurationId = model.LessonDurationId;
         booking.LessonType = model.LessonType;
-        booking.StartAt = model.StartAt;
+        booking.StartAt = startAt;
         booking.Participants = model.Participants;
         booking.Notes = model.Notes;
 

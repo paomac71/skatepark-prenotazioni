@@ -1,0 +1,80 @@
+@model SkateParkPrenotazioni.ViewModels.BookingCalendarViewModel
+@{
+    var form = Model.Form;
+    var actionName = form.Id.HasValue ? "Edit" : "Create";
+    var selectedDate = form.StartAt is null ? "" : form.StartAt.Value.ToString("yyyy-MM-dd");
+    var selectedStart = form.StartAt is null ? "" : form.StartAt.Value.ToString("yyyy-MM-ddTHH:mm");
+}
+
+<form asp-action="@actionName" method="post" class="space-y-6" id="booking-calendar-form"
+      data-instructor-id="@Model.InstructorId"
+      data-year="@Model.Year"
+      data-month="@Model.Month"
+      data-exclude-id="@(form.Id?.ToString() ?? "")"
+      data-selected-date="@selectedDate"
+      data-selected-start="@selectedStart">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Form.Id" />
+    <input type="hidden" asp-for="Form.InstructorId" />
+    <input type="hidden" asp-for="Form.StartAt" id="StartAt" />
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div>
+            <label asp-for="Form.LessonDurationId"></label>
+            <select asp-for="Form.LessonDurationId" asp-items="form.Durations" id="LessonDurationId"></select>
+            <span asp-validation-for="Form.LessonDurationId" class="text-danger"></span>
+        </div>
+        <div>
+            <label asp-for="Form.LessonType"></label>
+            <select asp-for="Form.LessonType" asp-items="Html.GetEnumSelectList<SkateParkPrenotazioni.Models.LessonType>()" id="LessonType"></select>
+            <span asp-validation-for="Form.LessonType" class="text-danger"></span>
+        </div>
+        <div id="participants-field">
+            <label asp-for="Form.Participants"></label>
+            <input asp-for="Form.Participants" min="1" max="@Model.MaxParticipants" id="Participants" />
+            <p class="form-text">Max @Model.MaxParticipants per questo istruttore. Privata = 1.</p>
+            <span asp-validation-for="Form.Participants" class="text-danger"></span>
+        </div>
+    </div>
+
+    <div class="card-surface !p-4">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl text-asphalt dark:text-park-concrete">Calendario disponibilità</h2>
+            <div class="flex items-center gap-2">
+                <button type="button" class="btn-outline btn-sm" id="cal-prev" aria-label="Mese precedente">←</button>
+                <p class="min-w-[9rem] text-center text-sm font-semibold capitalize" id="cal-label"></p>
+                <button type="button" class="btn-outline btn-sm" id="cal-next" aria-label="Mese successivo">→</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase tracking-wider text-asphalt-muted dark:text-park-concrete/70">
+            <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
+        </div>
+        <div id="calendar-grid" class="mt-2 grid grid-cols-7 gap-1" role="grid" aria-label="Giorni disponibili"></div>
+        <p class="form-text mt-3" id="calendar-hint">Solo i giorni con orari liberi sono selezionabili.</p>
+    </div>
+
+    <div>
+        <h3 class="mb-2 text-lg text-asphalt dark:text-park-concrete">Orari liberi</h3>
+        <div id="slots-container" class="flex flex-wrap gap-2">
+            <p class="text-sm text-asphalt-muted dark:text-park-concrete/70">Seleziona un giorno nel calendario.</p>
+        </div>
+        <span asp-validation-for="Form.StartAt" class="text-danger"></span>
+        <p class="form-text mt-2" id="selected-slot-label"></p>
+    </div>
+
+    <div>
+        <label asp-for="Form.Notes"></label>
+        <textarea asp-for="Form.Notes" rows="3"></textarea>
+        <span asp-validation-for="Form.Notes" class="text-danger"></span>
+    </div>
+
+    <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="btn-primary" id="submit-booking">Conferma prenotazione</button>
+        @if (!form.Id.HasValue)
+        {
+            <a class="btn-outline" asp-action="Create">Cambia istruttore</a>
+        }
+        <a class="btn-outline" asp-action="Index">Torna all'elenco</a>
+    </div>
+</form>

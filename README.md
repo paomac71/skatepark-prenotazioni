@@ -47,8 +47,10 @@ Non committare secret reali: usa User Secrets o variabili d’ambiente in produz
 
 - Registrazione / login utente
 - Elenco istruttori con capienza massima
+- Prenotazione a due passi: scelta istruttore → calendario con soli giorni disponibili e orari liberi
+- Disponibilità settimanale configurabile nella scheda istruttore (ruolo Admin)
 - Creazione, modifica e annullamento delle proprie prenotazioni
-- Controllo capienza per istruttore/slot
+- Controllo capienza per istruttore/slot (con sovrapposizione durata)
 - Pagina meteo 7 giorni (Open-Meteo)
 
 ## Test
@@ -61,8 +63,9 @@ dotnet test
 
 All’avvio vengono applicate le migrazioni e, se il DB è vuoto, creati:
 
-- 3 istruttori (Luca, Giulia, Marco)
+- 3 istruttori (Luca, Giulia, Marco) con fasce orarie settimanali di esempio
 - 3 durate lezione (30 / 60 / 90 minuti)
+- Ruolo `Admin`; in Development, utente `admin@skatepark.local` / `Admin123!` (da `AdminSeed` in `appsettings.Development.json`) per `/Instructors/Manage`
 
 ## Struttura
 
