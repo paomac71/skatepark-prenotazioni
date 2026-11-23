@@ -14,6 +14,7 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<Instructor> Instructors => Set<Instructor>();
     public DbSet<LessonDuration> LessonDurations => Set<LessonDuration>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<InstructorAvailability> InstructorAvailabilities => Set<InstructorAvailability>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -28,6 +29,16 @@ public class ApplicationDbContext : IdentityDbContext
         builder.Entity<LessonDuration>(entity =>
         {
             entity.Property(x => x.Label).HasMaxLength(50).IsRequired();
+        });
+
+        builder.Entity<InstructorAvailability>(entity =>
+        {
+            entity.HasOne(x => x.Instructor)
+                .WithMany(x => x.Availabilities)
+                .HasForeignKey(x => x.InstructorId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(x => new { x.InstructorId, x.DayOfWeek });
         });
 
         builder.Entity<Booking>(entity =>

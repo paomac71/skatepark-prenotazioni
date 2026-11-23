@@ -7,9 +7,14 @@ using SkateParkPrenotazioni.ViewModels;
 namespace SkateParkPrenotazioni.Controllers;
 
 [Authorize]
-public class BookingsController(IBookingService bookingService) : Controller
+public class BookingsController(
+    IBookingService bookingService,
+    IInstructorService instructorService,
+    IAvailabilityService availabilityService) : Controller
 {
     private readonly IBookingService _bookingService = bookingService;
+    private readonly IInstructorService _instructorService = instructorService;
+    private readonly IAvailabilityService _availabilityService = availabilityService;
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -17,28 +22,56 @@ public class BookingsController(IBookingService bookingService) : Controller
         return View(bookings);
     }
 
-    public async Task<IActionResult> Create(CancellationToken cancellationToken)
+    public async Task<IActionResult> Create(int? instructorId, CancellationToken cancellationToken)
     {
-        var model = await _bookingService.PrepareFormAsync(new BookingFormViewModel(), cancellationToken);
+        if (instructorId is null or <= 0)
+        {
+            var instructors = await _instructorService.GetActiveAsync(cancellationToken);
+            return View("SelectInstructor", instructors);
+        }
+
+        var instructor = await _instructorService.GetActiveByIdAsync(instructorId.Value, cancellationToken);
+        if (instructor is null)
+        {
+            return NotFound();
+        }
+
+        var form = await _bookingService.PrepareFormAsync(
+            new BookingFormViewModel { InstructorId = instructor.Id },
+            cancellationToken);
+
+        var now = DateTime.Today;
+        var model = new BookingCalendarViewModel
+        {
+            InstructorId = instructor.Id,
+            InstructorName = instructor.Name,
+            MaxParticipants = instructor.MaxParticipants,
+            Form = form,
+            Year = now.Year,
+            Month = now.Month
+        };
+
         return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(BookingFormViewModel model, CancellationToken cancellationToken)
+    public async Task<IActionResult> Create(
+        [Bind(Prefix = "Form")] BookingFormViewModel form,
+        CancellationToken cancellationToken)
     {
-        NormalizePrivateLesson(model);
+        NormalizePrivateLesson(form);
 
         if (!ModelState.IsValid)
         {
-            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
+            return await RedisplayCreateAsync(form, cancellationToken);
         }
 
-        var (ok, error) = await _bookingService.CreateAsync(UserId(), model, cancellationToken);
+        var (ok, error) = await _bookingService.CreateAsync(UserId(), form, cancellationToken);
         if (!ok)
         {
             ModelState.AddModelError(string.Empty, error!);
-            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
+            return await RedisplayCreateAsync(form, cancellationToken);
         }
 
         TempData["Success"] = "Prenotazione creata correttamente.";
@@ -47,27 +80,57 @@ public class BookingsController(IBookingService bookingService) : Controller
 
     public async Task<IActionResult> Edit(int id, CancellationToken cancellationToken)
     {
-        var model = await _bookingService.GetEditFormAsync(UserId(), id, cancellationToken);
-        return model is null ? NotFound() : View(model);
+        var form = await _bookingService.GetEditFormAsync(UserId(), id, cancellationToken);
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        var instructor = await _instructorService.GetActiveByIdAsync(form.InstructorId, cancellationToken);
+        if (instructor is null)
+        {
+            // Istruttore disattivato: mantieni comunque i dati del form per messaggio chiaro.
+            instructor = new InstructorListItemViewModel
+            {
+                Id = form.InstructorId,
+                Name = "Istruttore non disponibile",
+                MaxParticipants = form.Participants
+            };
+        }
+
+        var model = new BookingCalendarViewModel
+        {
+            InstructorId = form.InstructorId,
+            InstructorName = instructor.Name,
+            MaxParticipants = instructor.MaxParticipants,
+            Form = form,
+            Year = form.StartAt?.Year ?? DateTime.Today.Year,
+            Month = form.StartAt?.Month ?? DateTime.Today.Month
+        };
+
+        return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, BookingFormViewModel model, CancellationToken cancellationToken)
+    public async Task<IActionResult> Edit(
+        int id,
+        [Bind(Prefix = "Form")] BookingFormViewModel form,
+        CancellationToken cancellationToken)
     {
-        if (id != model.Id)
+        if (id != form.Id)
         {
             return BadRequest();
         }
 
-        NormalizePrivateLesson(model);
+        NormalizePrivateLesson(form);
 
         if (!ModelState.IsValid)
         {
-            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
+            return await RedisplayEditAsync(form, cancellationToken);
         }
 
-        var (ok, error, notFound) = await _bookingService.UpdateAsync(UserId(), id, model, cancellationToken);
+        var (ok, error, notFound) = await _bookingService.UpdateAsync(UserId(), id, form, cancellationToken);
         if (notFound)
         {
             return NotFound();
@@ -76,7 +139,7 @@ public class BookingsController(IBookingService bookingService) : Controller
         if (!ok)
         {
             ModelState.AddModelError(string.Empty, error!);
-            return View(await _bookingService.PrepareFormAsync(model, cancellationToken));
+            return await RedisplayEditAsync(form, cancellationToken);
         }
 
         TempData["Success"] = "Prenotazione aggiornata.";
@@ -95,6 +158,120 @@ public class BookingsController(IBookingService bookingService) : Controller
 
         TempData["Success"] = "Prenotazione annullata.";
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> AvailableDays(
+        int instructorId,
+        int year,
+        int month,
+        int lessonDurationId,
+        int participants = 1,
+        int? excludeBookingId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (year < 2000 || month is < 1 or > 12)
+        {
+            return BadRequest();
+        }
+
+        var minutes = await _bookingService.GetDurationMinutesAsync(lessonDurationId, cancellationToken);
+        if (minutes is null)
+        {
+            return BadRequest();
+        }
+
+        participants = Math.Max(1, participants);
+        var dates = await _availabilityService.GetAvailableDatesAsync(
+            instructorId,
+            year,
+            month,
+            minutes.Value,
+            participants,
+            excludeBookingId,
+            cancellationToken);
+
+        return Json(dates.Select(d => new BookingDayAvailabilityViewModel
+        {
+            Date = d,
+            HasSlots = true
+        }));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> AvailableSlots(
+        int instructorId,
+        string date,
+        int lessonDurationId,
+        int participants = 1,
+        int? excludeBookingId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!DateOnly.TryParse(date, out var day))
+        {
+            return BadRequest();
+        }
+
+        var minutes = await _bookingService.GetDurationMinutesAsync(lessonDurationId, cancellationToken);
+        if (minutes is null)
+        {
+            return BadRequest();
+        }
+
+        participants = Math.Max(1, participants);
+        var slots = await _availabilityService.GetFreeSlotsAsync(
+            instructorId,
+            day,
+            minutes.Value,
+            participants,
+            excludeBookingId,
+            cancellationToken);
+
+        return Json(slots.Select(s => new
+        {
+            startAt = s.StartAt.ToString("yyyy-MM-ddTHH:mm"),
+            label = s.Label,
+            remainingCapacity = s.RemainingCapacity
+        }));
+    }
+
+    private async Task<IActionResult> RedisplayCreateAsync(BookingFormViewModel form, CancellationToken cancellationToken)
+    {
+        form = await _bookingService.PrepareFormAsync(form, cancellationToken);
+        var instructor = await _instructorService.GetActiveByIdAsync(form.InstructorId, cancellationToken);
+        if (instructor is null)
+        {
+            var instructors = await _instructorService.GetActiveAsync(cancellationToken);
+            return View("SelectInstructor", instructors);
+        }
+
+        var model = new BookingCalendarViewModel
+        {
+            InstructorId = instructor.Id,
+            InstructorName = instructor.Name,
+            MaxParticipants = instructor.MaxParticipants,
+            Form = form,
+            Year = form.StartAt?.Year ?? DateTime.Today.Year,
+            Month = form.StartAt?.Month ?? DateTime.Today.Month
+        };
+
+        return View(model);
+    }
+
+    private async Task<IActionResult> RedisplayEditAsync(BookingFormViewModel form, CancellationToken cancellationToken)
+    {
+        form = await _bookingService.PrepareFormAsync(form, cancellationToken);
+        var instructor = await _instructorService.GetActiveByIdAsync(form.InstructorId, cancellationToken);
+        var model = new BookingCalendarViewModel
+        {
+            InstructorId = form.InstructorId,
+            InstructorName = instructor?.Name ?? "Istruttore",
+            MaxParticipants = instructor?.MaxParticipants ?? form.Participants,
+            Form = form,
+            Year = form.StartAt?.Year ?? DateTime.Today.Year,
+            Month = form.StartAt?.Month ?? DateTime.Today.Month
+        };
+        return View(model);
     }
 
     private string UserId() =>

@@ -32,4 +32,6 @@ public interface IBookingService
         string userId,
         int id,
         CancellationToken cancellationToken = default);
+
+    Task<int?> GetDurationMinutesAsync(int lessonDurationId, CancellationToken cancellationToken = default);
 }

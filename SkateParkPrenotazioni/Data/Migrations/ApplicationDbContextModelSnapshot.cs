@@ -301,6 +301,36 @@ namespace SkateParkPrenotazioni.Data.Migrations
                     b.ToTable("Instructors");
                 });
 
+            modelBuilder.Entity("SkateParkPrenotazioni.Models.InstructorAvailability", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<int>("InstructorId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeSpan>("StartTime")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstructorId", "DayOfWeek");
+
+                    b.ToTable("InstructorAvailabilities");
+                });
+
             modelBuilder.Entity("SkateParkPrenotazioni.Models.LessonDuration", b =>
                 {
                     b.Property<int>("Id")
@@ -403,8 +433,21 @@ namespace SkateParkPrenotazioni.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SkateParkPrenotazioni.Models.InstructorAvailability", b =>
+                {
+                    b.HasOne("SkateParkPrenotazioni.Models.Instructor", "Instructor")
+                        .WithMany("Availabilities")
+                        .HasForeignKey("InstructorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Instructor");
+                });
+
             modelBuilder.Entity("SkateParkPrenotazioni.Models.Instructor", b =>
                 {
+                    b.Navigation("Availabilities");
+
                     b.Navigation("Bookings");
                 });
 

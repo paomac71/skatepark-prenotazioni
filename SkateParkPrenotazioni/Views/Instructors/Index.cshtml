@@ -20,6 +20,15 @@
             <p class="mt-4 text-sm font-semibold text-asphalt dark:text-park-concrete">
                 Capienza max: <span class="text-primary">@instructor.MaxParticipants</span>
             </p>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="btn-primary mt-5 inline-flex"
+                   asp-controller="Bookings"
+                   asp-action="Create"
+                   asp-route-instructorId="@instructor.Id">
+                    Prenota con @instructor.Name
+                </a>
+            }
         </article>
     }
     </div>

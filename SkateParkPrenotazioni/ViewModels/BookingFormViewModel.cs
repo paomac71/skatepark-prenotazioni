@@ -20,9 +20,9 @@ public class BookingFormViewModel
     [Display(Name = "Tipologia")]
     public LessonType LessonType { get; set; } = LessonType.Privata;
 
-    [Required]
+    [Required(ErrorMessage = "Seleziona un orario libero dal calendario.")]
     [Display(Name = "Data e ora inizio")]
-    public DateTime StartAt { get; set; } = DateTime.Today.AddDays(1).AddHours(10);
+    public DateTime? StartAt { get; set; }
 
     [Range(1, 50)]
     [Display(Name = "Partecipanti")]

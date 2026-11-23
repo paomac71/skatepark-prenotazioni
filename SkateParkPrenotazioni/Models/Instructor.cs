@@ -21,4 +21,6 @@ public class Instructor
     public bool IsActive { get; set; } = true;
 
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+
+    public ICollection<InstructorAvailability> Availabilities { get; set; } = new List<InstructorAvailability>();
 }

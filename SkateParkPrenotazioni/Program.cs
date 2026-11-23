@@ -23,6 +23,7 @@ builder.Services
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequiredLength = 7;
     })
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 var googleSection = builder.Configuration.GetSection(GoogleAuthOptions.SectionName);
@@ -44,6 +45,7 @@ if (!string.IsNullOrWhiteSpace(googleClientId)
 builder.Services.Configure<WeatherOptions>(builder.Configuration.GetSection(WeatherOptions.SectionName));
 builder.Services.AddHttpClient<IWeatherService, OpenMeteoWeatherService>();
 builder.Services.AddScoped<IBookingCapacityService, BookingCapacityService>();
+builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IInstructorService, InstructorService>();
 builder.Services.AddControllersWithViews();
@@ -56,7 +58,9 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await DbSeeder.SeedAsync(db);
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        await DbSeeder.SeedAsync(db, roleManager, userManager, app.Configuration);
     }
     catch (Exception ex)
     {
