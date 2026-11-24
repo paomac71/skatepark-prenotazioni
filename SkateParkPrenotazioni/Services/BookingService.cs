@@ -105,6 +105,62 @@ public class BookingService(
         return owned ? excludeBookingId : null;
     }
 
+    public async Task<UserDayBookingViewModel?> GetUserActiveBookingOnDayAsync(
+        string userId,
+        int instructorId,
+        DateOnly date,
+        CancellationToken cancellationToken = default)
+    {
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = dayStart.AddDays(1);
+
+        return await _db.Bookings
+            .AsNoTracking()
+            .Where(b => !b.IsCancelled
+                        && b.UserId == userId
+                        && b.InstructorId == instructorId
+                        && b.StartAt >= dayStart
+                        && b.StartAt < dayEnd)
+            .OrderBy(b => b.StartAt)
+            .Select(b => new UserDayBookingViewModel
+            {
+                Id = b.Id,
+                StartAt = b.StartAt,
+                Participants = b.Participants,
+                LessonType = b.LessonType,
+                DurationLabel = b.LessonDuration != null ? b.LessonDuration.Label : string.Empty
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<string, int>> GetUserActiveBookingIdsByDateAsync(
+        string userId,
+        int instructorId,
+        int year,
+        int month,
+        CancellationToken cancellationToken = default)
+    {
+        var monthStart = new DateOnly(year, month, 1);
+        var rangeStart = monthStart.ToDateTime(TimeOnly.MinValue);
+        var rangeEnd = monthStart.AddMonths(1).ToDateTime(TimeOnly.MinValue);
+
+        var rows = await _db.Bookings
+            .AsNoTracking()
+            .Where(b => !b.IsCancelled
+                        && b.UserId == userId
+                        && b.InstructorId == instructorId
+                        && b.StartAt >= rangeStart
+                        && b.StartAt < rangeEnd)
+            .OrderBy(b => b.StartAt)
+            .Select(b => new { b.Id, b.StartAt })
+            .ToListAsync(cancellationToken);
+
+        // Una prenotazione per giorno: la prima del giorno.
+        return rows
+            .GroupBy(b => DateOnly.FromDateTime(b.StartAt).ToString("yyyy-MM-dd"))
+            .ToDictionary(g => g.Key, g => g.First().Id);
+    }
+
     public async Task<(bool Ok, string? Error)> CreateAsync(
         string userId,
         BookingFormViewModel model,
@@ -118,6 +174,20 @@ public class BookingService(
         }
 
         var startAt = model.StartAt.Value;
+        var existingSameDay = await GetUserActiveBookingOnDayAsync(
+            userId,
+            model.InstructorId,
+            DateOnly.FromDateTime(startAt),
+            cancellationToken);
+
+        if (existingSameDay is not null)
+        {
+            // Stesso giorno + stesso istruttore: aggiorna la prenotazione esistente.
+            model.Id = existingSameDay.Id;
+            var (updated, updateError, _) = await UpdateAsync(userId, existingSameDay.Id, model, cancellationToken);
+            return (updated, updateError);
+        }
+
         var durationMinutes = await GetDurationMinutesAsync(model.LessonDurationId, cancellationToken);
         if (durationMinutes is null)
         {

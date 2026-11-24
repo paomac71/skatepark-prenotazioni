@@ -42,4 +42,17 @@ public interface IBookingService
         string userId,
         int? excludeBookingId,
         CancellationToken cancellationToken = default);
+
+    Task<UserDayBookingViewModel?> GetUserActiveBookingOnDayAsync(
+        string userId,
+        int instructorId,
+        DateOnly date,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<string, int>> GetUserActiveBookingIdsByDateAsync(
+        string userId,
+        int instructorId,
+        int year,
+        int month,
+        CancellationToken cancellationToken = default);
 }
