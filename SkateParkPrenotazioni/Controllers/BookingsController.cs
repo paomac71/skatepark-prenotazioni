@@ -10,11 +10,13 @@ namespace SkateParkPrenotazioni.Controllers;
 public class BookingsController(
     IBookingService bookingService,
     IInstructorService instructorService,
-    IAvailabilityService availabilityService) : Controller
+    IAvailabilityService availabilityService,
+    IAppClock clock) : Controller
 {
     private readonly IBookingService _bookingService = bookingService;
     private readonly IInstructorService _instructorService = instructorService;
     private readonly IAvailabilityService _availabilityService = availabilityService;
+    private readonly IAppClock _clock = clock;
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -40,15 +42,15 @@ public class BookingsController(
             new BookingFormViewModel { InstructorId = instructor.Id },
             cancellationToken);
 
-        var now = DateTime.Today;
+        var today = _clock.Today;
         var model = new BookingCalendarViewModel
         {
             InstructorId = instructor.Id,
             InstructorName = instructor.Name,
             MaxParticipants = instructor.MaxParticipants,
             Form = form,
-            Year = now.Year,
-            Month = now.Month
+            Year = today.Year,
+            Month = today.Month
         };
 
         return View(model);
@@ -67,6 +69,15 @@ public class BookingsController(
             return await RedisplayCreateAsync(form, cancellationToken);
         }
 
+        // Se esiste già una prenotazione lo stesso giorno, CreateAsync la aggiorna.
+        var existingBefore = form.StartAt is null
+            ? null
+            : await _bookingService.GetUserActiveBookingOnDayAsync(
+                UserId(),
+                form.InstructorId,
+                DateOnly.FromDateTime(form.StartAt.Value),
+                cancellationToken);
+
         var (ok, error) = await _bookingService.CreateAsync(UserId(), form, cancellationToken);
         if (!ok)
         {
@@ -74,7 +85,9 @@ public class BookingsController(
             return await RedisplayCreateAsync(form, cancellationToken);
         }
 
-        TempData["Success"] = "Prenotazione creata correttamente.";
+        TempData["Success"] = existingBefore is null
+            ? "Prenotazione creata correttamente."
+            : "Prenotazione esistente aggiornata (stesso giorno).";
         return RedirectToAction(nameof(Index));
     }
 
@@ -196,11 +209,42 @@ public class BookingsController(
             ownedExcludeId,
             cancellationToken);
 
-        return Json(dates.Select(d => new BookingDayAvailabilityViewModel
+        var myBookings = await _bookingService.GetUserActiveBookingIdsByDateAsync(
+            UserId(),
+            instructorId,
+            year,
+            month,
+            cancellationToken);
+
+        var byDate = new Dictionary<string, BookingDayAvailabilityViewModel>();
+        foreach (var d in dates)
         {
-            Date = d,
-            HasSlots = true
-        }));
+            byDate[d] = new BookingDayAvailabilityViewModel
+            {
+                Date = d,
+                HasSlots = true,
+                ExistingBookingId = myBookings.TryGetValue(d, out var bid) ? bid : null
+            };
+        }
+
+        foreach (var (date, bookingId) in myBookings)
+        {
+            if (byDate.TryGetValue(date, out var day))
+            {
+                day.ExistingBookingId = bookingId;
+                continue;
+            }
+
+            // Giorno con prenotazione utente ma senza slot liberi: abilitato per modifica.
+            byDate[date] = new BookingDayAvailabilityViewModel
+            {
+                Date = date,
+                HasSlots = false,
+                ExistingBookingId = bookingId
+            };
+        }
+
+        return Json(byDate.Values.OrderBy(d => d.Date));
     }
 
     [HttpGet]
@@ -261,8 +305,8 @@ public class BookingsController(
             InstructorName = instructor.Name,
             MaxParticipants = instructor.MaxParticipants,
             Form = form,
-            Year = form.StartAt?.Year ?? DateTime.Today.Year,
-            Month = form.StartAt?.Month ?? DateTime.Today.Month
+            Year = form.StartAt?.Year ?? _clock.Today.Year,
+            Month = form.StartAt?.Month ?? _clock.Today.Month
         };
 
         return View(model);
@@ -278,8 +322,8 @@ public class BookingsController(
             InstructorName = instructor?.Name ?? "Istruttore",
             MaxParticipants = instructor?.MaxParticipants ?? form.Participants,
             Form = form,
-            Year = form.StartAt?.Year ?? DateTime.Today.Year,
-            Month = form.StartAt?.Month ?? DateTime.Today.Month
+            Year = form.StartAt?.Year ?? _clock.Today.Year,
+            Month = form.StartAt?.Month ?? _clock.Today.Month
         };
         return View(model);
     }

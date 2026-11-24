@@ -6,6 +6,8 @@
 
   const instructorId = form.dataset.instructorId;
   const excludeId = form.dataset.excludeId || "";
+  const isEdit = form.dataset.isEdit === "true";
+  const editUrlTemplate = form.dataset.editUrlTemplate || "/Bookings/Edit/0";
   const grid = document.getElementById("calendar-grid");
   const slotsContainer = document.getElementById("slots-container");
   const label = document.getElementById("cal-label");
@@ -19,7 +21,8 @@
   let year = Number(form.dataset.year);
   let month = Number(form.dataset.month);
   let selectedDate = form.dataset.selectedDate || "";
-  let availableDates = new Set();
+  /** @type {Map<string, { hasSlots: boolean, existingBookingId: number|null }>} */
+  let dayMeta = new Map();
 
   const monthNames = [
     "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
@@ -36,14 +39,22 @@
   }
 
   function toggleParticipants() {
-    if (!participantsField || !lessonTypeSelect) {
+    if (!participantsInput || !lessonTypeSelect) {
       return;
     }
     const isPrivate = lessonTypeSelect.value === "0";
-    participantsField.classList.toggle("hidden", isPrivate);
-    if (isPrivate && participantsInput) {
+    participantsInput.readOnly = isPrivate;
+    participantsInput.classList.toggle("opacity-60", isPrivate);
+    if (isPrivate) {
       participantsInput.value = "1";
     }
+    if (participantsField) {
+      participantsField.classList.remove("hidden");
+    }
+  }
+
+  function editUrlFor(bookingId) {
+    return editUrlTemplate.replace(/\/0(\/?)$/, `/${bookingId}$1`);
   }
 
   async function loadAvailableDays() {
@@ -66,17 +77,23 @@
       headers: { Accept: "application/json" }
     });
     if (!response.ok) {
-      availableDates = new Set();
+      dayMeta = new Map();
       renderCalendar();
       return;
     }
 
     const data = await response.json();
-    availableDates = new Set((data || []).map((d) => d.date));
+    dayMeta = new Map();
+    (data || []).forEach((d) => {
+      dayMeta.set(d.date, {
+        hasSlots: !!d.hasSlots,
+        existingBookingId: d.existingBookingId ?? null
+      });
+    });
     renderCalendar();
 
-    if (selectedDate && availableDates.has(selectedDate)) {
-      await loadSlots(selectedDate);
+    if (selectedDate && dayMeta.has(selectedDate)) {
+      await openDay(selectedDate, { skipRedirect: true });
     } else if (selectedDate) {
       selectedDate = "";
       if (startAtInput) {
@@ -98,7 +115,6 @@
     grid.innerHTML = "";
 
     const first = new Date(year, month - 1, 1);
-    // Lunedì = 0 … Domenica = 6
     const offset = (first.getDay() + 6) % 7;
     const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -110,7 +126,9 @@
 
     for (let day = 1; day <= daysInMonth; day += 1) {
       const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      const enabled = availableDates.has(dateStr);
+      const meta = dayMeta.get(dateStr);
+      const enabled = !!meta;
+      const hasMine = !!(meta && meta.existingBookingId);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = String(day);
@@ -120,17 +138,37 @@
         enabled
           ? "bg-primary/10 text-primary hover:bg-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-primary"
           : "cursor-not-allowed bg-asphalt/5 text-asphalt-muted/50 dark:bg-asphalt-muted/20",
-        selectedDate === dateStr ? "ring-2 ring-accent bg-primary text-white" : ""
+        hasMine ? "ring-2 ring-accent" : "",
+        selectedDate === dateStr ? "bg-primary text-white" : ""
       ].join(" ");
       btn.disabled = !enabled;
+      if (hasMine) {
+        btn.title = "Hai già una prenotazione: clic per modificarla";
+        btn.setAttribute("aria-label", `Giorno ${day}, prenotazione esistente`);
+      }
       if (enabled) {
-        btn.addEventListener("click", () => onDayClick(dateStr));
+        btn.addEventListener("click", () => openDay(dateStr));
       }
       grid.appendChild(btn);
     }
   }
 
-  async function onDayClick(dateStr) {
+  async function openDay(dateStr, options = {}) {
+    const meta = dayMeta.get(dateStr);
+    const existingId = meta?.existingBookingId;
+
+    // In nuova prenotazione, un giorno già prenotato apre la modifica.
+    if (!isEdit && existingId && !options.skipRedirect) {
+      window.location.href = editUrlFor(existingId);
+      return;
+    }
+
+    // In edit, se clicchi un altro giorno con altra prenotazione tua → vai a quella.
+    if (isEdit && existingId && String(existingId) !== excludeId && !options.skipRedirect) {
+      window.location.href = editUrlFor(existingId);
+      return;
+    }
+
     selectedDate = dateStr;
     renderCalendar();
     await loadSlots(dateStr);
@@ -196,7 +234,7 @@
       startAtInput.value = slot.startAt;
     }
     if (selectedSlotLabel) {
-      selectedSlotLabel.textContent = `Orario selezionato: ${slot.startAt.replace("T", " ")}`;
+      selectedSlotLabel.textContent = `Orario selezionato: ${slot.startAt.replace("T", " ")} · partecipanti: ${participants()}`;
     }
     loadSlots(selectedDate);
   }
@@ -255,7 +293,7 @@
   loadAvailableDays().then(() => {
     if (selectedDate && startAtInput?.value) {
       if (selectedSlotLabel) {
-        selectedSlotLabel.textContent = `Orario selezionato: ${startAtInput.value.replace("T", " ")}`;
+        selectedSlotLabel.textContent = `Orario selezionato: ${startAtInput.value.replace("T", " ")} · partecipanti: ${participants()}`;
       }
     }
   });

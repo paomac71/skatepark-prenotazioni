@@ -4,6 +4,7 @@
     var actionName = form.Id.HasValue ? "Edit" : "Create";
     var selectedDate = form.StartAt is null ? "" : form.StartAt.Value.ToString("yyyy-MM-dd");
     var selectedStart = form.StartAt is null ? "" : form.StartAt.Value.ToString("yyyy-MM-ddTHH:mm");
+    var isEdit = form.Id.HasValue;
 }
 
 <form asp-action="@actionName" method="post" class="space-y-6" id="booking-calendar-form"
@@ -12,7 +13,9 @@
       data-month="@Model.Month"
       data-exclude-id="@(form.Id?.ToString() ?? "")"
       data-selected-date="@selectedDate"
-      data-selected-start="@selectedStart">
+      data-selected-start="@selectedStart"
+      data-is-edit="@(isEdit ? "true" : "false")"
+      data-edit-url-template="@Url.Action("Edit", "Bookings", new { id = 0 })">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <input type="hidden" asp-for="Form.Id" />
     <input type="hidden" asp-for="Form.InstructorId" />
@@ -30,9 +33,12 @@
             <span asp-validation-for="Form.LessonType" class="text-danger"></span>
         </div>
         <div id="participants-field">
-            <label asp-for="Form.Participants"></label>
+            <label asp-for="Form.Participants" class="font-semibold"></label>
             <input asp-for="Form.Participants" min="1" max="@Model.MaxParticipants" id="Participants" />
-            <p class="form-text">Max @Model.MaxParticipants per questo istruttore. Privata = 1.</p>
+            <p class="form-text">
+                Indica quanti partecipanti. Max <span class="font-semibold text-primary">@Model.MaxParticipants</span>
+                per questo istruttore. Per lezione privata resta 1.
+            </p>
             <span asp-validation-for="Form.Participants" class="text-danger"></span>
         </div>
     </div>
@@ -51,7 +57,9 @@
             <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
         </div>
         <div id="calendar-grid" class="mt-2 grid grid-cols-7 gap-1" role="grid" aria-label="Giorni disponibili"></div>
-        <p class="form-text mt-3" id="calendar-hint">Solo i giorni con orari liberi sono selezionabili.</p>
+        <p class="form-text mt-3" id="calendar-hint">
+            Giorni verdi: orari liberi. Giorni con bordo accent: hai già una prenotazione (clic per modificarla).
+        </p>
     </div>
 
     <div>
@@ -70,8 +78,10 @@
     </div>
 
     <div class="flex flex-wrap gap-3 pt-2">
-        <button type="submit" class="btn-primary" id="submit-booking">Conferma prenotazione</button>
-        @if (!form.Id.HasValue)
+        <button type="submit" class="btn-primary" id="submit-booking">
+            @(isEdit ? "Salva modifiche" : "Conferma prenotazione")
+        </button>
+        @if (!isEdit)
         {
             <a class="btn-outline" asp-action="Create">Cambia istruttore</a>
         }
