@@ -1,7 +1,7 @@
-# Testing
+# testing
 
-- Use xUnit.
-- Use Moq for mocking.
-- Generate unit tests for business logic.
-- Cover happy path and validation errors.
-- Prefer Arrange-Act-Assert structure.
+- Apply project standards.
+- Prefer ASP.NET Core 9 patterns.
+- Use async/await.
+- Enable nullable reference types.
+- Add validation, logging and tests where appropriate.
