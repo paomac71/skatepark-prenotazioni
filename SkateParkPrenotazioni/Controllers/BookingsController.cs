@@ -182,13 +182,18 @@ public class BookingsController(
         }
 
         participants = Math.Max(1, participants);
+        var ownedExcludeId = await _bookingService.ResolveOwnedExcludeBookingIdAsync(
+            UserId(),
+            excludeBookingId,
+            cancellationToken);
+
         var dates = await _availabilityService.GetAvailableDatesAsync(
             instructorId,
             year,
             month,
             minutes.Value,
             participants,
-            excludeBookingId,
+            ownedExcludeId,
             cancellationToken);
 
         return Json(dates.Select(d => new BookingDayAvailabilityViewModel
@@ -219,12 +224,17 @@ public class BookingsController(
         }
 
         participants = Math.Max(1, participants);
+        var ownedExcludeId = await _bookingService.ResolveOwnedExcludeBookingIdAsync(
+            UserId(),
+            excludeBookingId,
+            cancellationToken);
+
         var slots = await _availabilityService.GetFreeSlotsAsync(
             instructorId,
             day,
             minutes.Value,
             participants,
-            excludeBookingId,
+            ownedExcludeId,
             cancellationToken);
 
         return Json(slots.Select(s => new
@@ -283,6 +293,7 @@ public class BookingsController(
         if (model.LessonType == Models.LessonType.Privata)
         {
             model.Participants = 1;
+            ModelState.Remove("Form.Participants");
             ModelState.Remove(nameof(model.Participants));
         }
     }

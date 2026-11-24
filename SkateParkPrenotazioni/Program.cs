@@ -44,6 +44,7 @@ if (!string.IsNullOrWhiteSpace(googleClientId)
 
 builder.Services.Configure<WeatherOptions>(builder.Configuration.GetSection(WeatherOptions.SectionName));
 builder.Services.AddHttpClient<IWeatherService, OpenMeteoWeatherService>();
+builder.Services.AddSingleton<IAppClock, AppClock>();
 builder.Services.AddScoped<IBookingCapacityService, BookingCapacityService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IBookingService, BookingService>();

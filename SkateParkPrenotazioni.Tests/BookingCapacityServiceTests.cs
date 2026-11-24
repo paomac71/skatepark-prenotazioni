@@ -7,13 +7,15 @@ namespace SkateParkPrenotazioni.Tests;
 
 public class BookingCapacityServiceTests
 {
+    private static readonly DateTime FixedNow = new(2026, 11, 24, 8, 0, 0);
+
     [Fact]
     public async Task ValidateAsync_ReturnsError_WhenInstructorMissing()
     {
         await using var db = CreateDb();
-        var sut = new BookingCapacityService(db);
+        var sut = CreateSut(db);
 
-        var (ok, error) = await sut.ValidateAsync(99, DateTime.Now.AddDays(1), 60, 1, LessonType.Privata);
+        var (ok, error) = await sut.ValidateAsync(99, FixedNow.AddDays(1), 60, 1, LessonType.Privata);
 
         Assert.False(ok);
         Assert.Contains("Istruttore", error, StringComparison.OrdinalIgnoreCase);
@@ -25,9 +27,9 @@ public class BookingCapacityServiceTests
         await using var db = CreateDb();
         db.Instructors.Add(new Instructor { Name = "Luca", Bio = "Test", MaxParticipants = 4, IsActive = true });
         await db.SaveChangesAsync();
-        var sut = new BookingCapacityService(db);
+        var sut = CreateSut(db);
 
-        var (ok, error) = await sut.ValidateAsync(1, DateTime.Now.AddDays(1), 60, 2, LessonType.Privata);
+        var (ok, error) = await sut.ValidateAsync(1, FixedNow.AddDays(1), 60, 2, LessonType.Privata);
 
         Assert.False(ok);
         Assert.Contains("privata", error, StringComparison.OrdinalIgnoreCase);
@@ -37,7 +39,7 @@ public class BookingCapacityServiceTests
     public async Task ValidateAsync_ReturnsError_WhenSlotIsFull()
     {
         await using var db = CreateDb();
-        var start = DateTime.Today.AddDays(1).AddHours(10);
+        var start = FixedNow.Date.AddDays(1).AddHours(10);
         db.Instructors.Add(new Instructor { Name = "Giulia", Bio = "Test", MaxParticipants = 2, IsActive = true });
         db.LessonDurations.Add(new LessonDuration { Label = "60 min", Minutes = 60, IsActive = true });
         await db.SaveChangesAsync();
@@ -53,7 +55,7 @@ public class BookingCapacityServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new BookingCapacityService(db);
+        var sut = CreateSut(db);
         var (ok, error) = await sut.ValidateAsync(1, start, 60, 1, LessonType.Gruppo);
 
         Assert.False(ok);
@@ -64,7 +66,7 @@ public class BookingCapacityServiceTests
     public async Task ValidateAsync_ReturnsError_WhenOverlappingBookingFillsCapacity()
     {
         await using var db = CreateDb();
-        var start = DateTime.Today.AddDays(1).AddHours(10);
+        var start = FixedNow.Date.AddDays(1).AddHours(10);
         db.Instructors.Add(new Instructor { Name = "Marco", Bio = "Test", MaxParticipants = 1, IsActive = true });
         db.LessonDurations.Add(new LessonDuration { Label = "60 min", Minutes = 60, IsActive = true });
         await db.SaveChangesAsync();
@@ -80,7 +82,7 @@ public class BookingCapacityServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new BookingCapacityService(db);
+        var sut = CreateSut(db);
         var (ok, error) = await sut.ValidateAsync(1, start.AddMinutes(30), 60, 1, LessonType.Privata);
 
         Assert.False(ok);
@@ -91,7 +93,7 @@ public class BookingCapacityServiceTests
     public async Task ValidateAsync_Succeeds_WhenCapacityAvailable()
     {
         await using var db = CreateDb();
-        var start = DateTime.Today.AddDays(1).AddHours(10);
+        var start = FixedNow.Date.AddDays(1).AddHours(10);
         db.Instructors.Add(new Instructor { Name = "Marco", Bio = "Test", MaxParticipants = 4, IsActive = true });
         db.LessonDurations.Add(new LessonDuration { Label = "60 min", Minutes = 60, IsActive = true });
         await db.SaveChangesAsync();
@@ -107,12 +109,29 @@ public class BookingCapacityServiceTests
         });
         await db.SaveChangesAsync();
 
-        var sut = new BookingCapacityService(db);
+        var sut = CreateSut(db);
         var (ok, error) = await sut.ValidateAsync(1, start, 60, 2, LessonType.Gruppo);
 
         Assert.True(ok);
         Assert.Null(error);
     }
+
+    [Fact]
+    public async Task ValidateAsync_ReturnsError_WhenSlotIsInThePast()
+    {
+        await using var db = CreateDb();
+        db.Instructors.Add(new Instructor { Name = "Luca", Bio = "Test", MaxParticipants = 1, IsActive = true });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var (ok, error) = await sut.ValidateAsync(1, FixedNow.AddHours(-2), 60, 1, LessonType.Privata);
+
+        Assert.False(ok);
+        Assert.Contains("passato", error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static BookingCapacityService CreateSut(ApplicationDbContext db) =>
+        new(db, new TestAppClock(FixedNow));
 
     private static ApplicationDbContext CreateDb()
     {

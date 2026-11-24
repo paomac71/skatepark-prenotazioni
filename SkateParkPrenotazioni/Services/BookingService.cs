@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using SkateParkPrenotazioni.Data;
@@ -87,6 +88,23 @@ public class BookingService(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<int?> ResolveOwnedExcludeBookingIdAsync(
+        string userId,
+        int? excludeBookingId,
+        CancellationToken cancellationToken = default)
+    {
+        if (excludeBookingId is null or <= 0)
+        {
+            return null;
+        }
+
+        var owned = await _db.Bookings
+            .AsNoTracking()
+            .AnyAsync(b => b.Id == excludeBookingId.Value && b.UserId == userId, cancellationToken);
+
+        return owned ? excludeBookingId : null;
+    }
+
     public async Task<(bool Ok, string? Error)> CreateAsync(
         string userId,
         BookingFormViewModel model,
@@ -115,35 +133,38 @@ public class BookingService(
             return (false, "Lo slot selezionato non rientra nei giorni/orari disponibili dell'istruttore.");
         }
 
-        var (ok, error) = await _capacity.ValidateAsync(
-            model.InstructorId,
-            startAt,
-            durationMinutes.Value,
-            model.Participants,
-            model.LessonType,
-            cancellationToken: cancellationToken);
-
-        if (!ok)
+        return await ExecuteInCapacityTransactionAsync(async () =>
         {
-            return (false, error);
-        }
+            var (ok, error) = await _capacity.ValidateAsync(
+                model.InstructorId,
+                startAt,
+                durationMinutes.Value,
+                model.Participants,
+                model.LessonType,
+                cancellationToken: cancellationToken);
 
-        var booking = new Booking
-        {
-            UserId = userId,
-            InstructorId = model.InstructorId,
-            LessonDurationId = model.LessonDurationId,
-            LessonType = model.LessonType,
-            StartAt = startAt,
-            Participants = model.Participants,
-            Notes = model.Notes,
-            CreatedAt = DateTime.UtcNow
-        };
+            if (!ok)
+            {
+                return (false, error);
+            }
 
-        _db.Bookings.Add(booking);
-        await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Prenotazione {BookingId} creata per utente {UserId}", booking.Id, userId);
-        return (true, null);
+            var booking = new Booking
+            {
+                UserId = userId,
+                InstructorId = model.InstructorId,
+                LessonDurationId = model.LessonDurationId,
+                LessonType = model.LessonType,
+                StartAt = startAt,
+                Participants = model.Participants,
+                Notes = model.Notes,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.Bookings.Add(booking);
+            await _db.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Prenotazione {BookingId} creata per utente {UserId}", booking.Id, userId);
+            return (true, null);
+        }, cancellationToken);
     }
 
     public async Task<BookingFormViewModel?> GetEditFormAsync(
@@ -206,30 +227,35 @@ public class BookingService(
             return (false, "Lo slot selezionato non rientra nei giorni/orari disponibili dell'istruttore.", false);
         }
 
-        var (ok, error) = await _capacity.ValidateAsync(
-            model.InstructorId,
-            startAt,
-            durationMinutes.Value,
-            model.Participants,
-            model.LessonType,
-            excludeBookingId: id,
-            cancellationToken: cancellationToken);
-
-        if (!ok)
+        var (ok, error) = await ExecuteInCapacityTransactionAsync(async () =>
         {
-            return (false, error, false);
-        }
+            var (valid, validationError) = await _capacity.ValidateAsync(
+                model.InstructorId,
+                startAt,
+                durationMinutes.Value,
+                model.Participants,
+                model.LessonType,
+                excludeBookingId: id,
+                cancellationToken: cancellationToken);
 
-        booking.InstructorId = model.InstructorId;
-        booking.LessonDurationId = model.LessonDurationId;
-        booking.LessonType = model.LessonType;
-        booking.StartAt = startAt;
-        booking.Participants = model.Participants;
-        booking.Notes = model.Notes;
+            if (!valid)
+            {
+                return (false, validationError);
+            }
 
-        await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Prenotazione {BookingId} aggiornata per utente {UserId}", booking.Id, userId);
-        return (true, null, false);
+            booking.InstructorId = model.InstructorId;
+            booking.LessonDurationId = model.LessonDurationId;
+            booking.LessonType = model.LessonType;
+            booking.StartAt = startAt;
+            booking.Participants = model.Participants;
+            booking.Notes = model.Notes;
+
+            await _db.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Prenotazione {BookingId} aggiornata per utente {UserId}", booking.Id, userId);
+            return (true, null);
+        }, cancellationToken);
+
+        return (ok, error, false);
     }
 
     public async Task<(bool Ok, bool NotFound)> CancelAsync(
@@ -251,6 +277,43 @@ public class BookingService(
         }
 
         return (true, false);
+    }
+
+    private async Task<(bool Ok, string? Error)> ExecuteInCapacityTransactionAsync(
+        Func<Task<(bool Ok, string? Error)>> action,
+        CancellationToken cancellationToken)
+    {
+        if (!_db.Database.IsRelational())
+        {
+            return await action();
+        }
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable,
+                cancellationToken);
+            try
+            {
+                var result = await action();
+                if (result.Ok)
+                {
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                else
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        });
     }
 
     private Task<Booking?> FindOwnedAsync(string userId, int id, CancellationToken cancellationToken) =>
