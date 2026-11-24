@@ -1,15 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using SkateParkPrenotazioni.Data;
+using SkateParkPrenotazioni.Models;
 using SkateParkPrenotazioni.ViewModels;
 
 namespace SkateParkPrenotazioni.Services;
 
 public class AvailabilityService(
     ApplicationDbContext db,
-    IBookingCapacityService capacity) : IAvailabilityService
+    IBookingCapacityService capacity,
+    IAppClock clock) : IAvailabilityService
 {
     private readonly ApplicationDbContext _db = db;
     private readonly IBookingCapacityService _capacity = capacity;
+    private readonly IAppClock _clock = clock;
 
     public async Task<bool> IsWithinAvailabilityAsync(
         int instructorId,
@@ -23,6 +26,11 @@ public class AvailabilityService(
         }
 
         var endAt = startAt.AddMinutes(durationMinutes);
+        if (endAt.Date > startAt.Date)
+        {
+            return false;
+        }
+
         var windows = await _db.InstructorAvailabilities
             .AsNoTracking()
             .Where(a => a.InstructorId == instructorId
@@ -32,12 +40,6 @@ public class AvailabilityService(
 
         var startTime = startAt.TimeOfDay;
         var endTime = endAt.TimeOfDay;
-        // Lezione che termina a mezzanotte esatta: endTime = 00:00 → confronta con EndTime della finestra.
-        if (endAt.Date > startAt.Date)
-        {
-            return false;
-        }
-
         return windows.Any(w => startTime >= w.StartTime && endTime <= w.EndTime);
     }
 
@@ -64,21 +66,27 @@ public class AvailabilityService(
             return Array.Empty<string>();
         }
 
-        var activeDays = await _db.InstructorAvailabilities
+        var windows = await _db.InstructorAvailabilities
             .AsNoTracking()
             .Where(a => a.InstructorId == instructorId && a.IsActive)
-            .Select(a => a.DayOfWeek)
-            .Distinct()
+            .OrderBy(a => a.StartTime)
             .ToListAsync(cancellationToken);
 
-        if (activeDays.Count == 0)
+        if (windows.Count == 0)
         {
             return Array.Empty<string>();
         }
 
-        var daysInMonth = DateTime.DaysInMonth(year, month);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var monthStart = new DateOnly(year, month, 1);
+        var monthEnd = monthStart.AddMonths(1);
+        var rangeStart = monthStart.ToDateTime(TimeOnly.MinValue);
+        var rangeEnd = monthEnd.ToDateTime(TimeOnly.MinValue);
+
+        var bookings = await LoadBookingsAsync(instructorId, rangeStart, rangeEnd, cancellationToken);
+        var today = _clock.Today;
+        var now = _clock.Now;
         var available = new List<string>();
+        var daysInMonth = DateTime.DaysInMonth(year, month);
 
         for (var day = 1; day <= daysInMonth; day++)
         {
@@ -88,18 +96,21 @@ public class AvailabilityService(
                 continue;
             }
 
-            if (!activeDays.Contains(date.DayOfWeek))
+            var dayWindows = windows.Where(w => w.DayOfWeek == date.DayOfWeek).ToList();
+            if (dayWindows.Count == 0)
             {
                 continue;
             }
 
-            var slots = await GetFreeSlotsAsync(
-                instructorId,
+            var slots = BuildFreeSlots(
+                instructor,
                 date,
+                dayWindows,
+                bookings,
                 durationMinutes,
                 participants,
                 excludeBookingId,
-                cancellationToken);
+                now);
 
             if (slots.Count > 0)
             {
@@ -145,7 +156,55 @@ public class AvailabilityService(
             return Array.Empty<BookingSlotViewModel>();
         }
 
-        var now = DateTime.Now;
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = dayStart.AddDays(1);
+        var bookings = await LoadBookingsAsync(instructorId, dayStart, dayEnd, cancellationToken);
+
+        return BuildFreeSlots(
+            instructor,
+            date,
+            windows,
+            bookings,
+            durationMinutes,
+            participants,
+            excludeBookingId,
+            _clock.Now);
+    }
+
+    private async Task<List<(int Id, DateTime StartAt, int Participants, int Minutes)>> LoadBookingsAsync(
+        int instructorId,
+        DateTime rangeStart,
+        DateTime rangeEnd,
+        CancellationToken cancellationToken)
+    {
+        var rows = await _db.Bookings
+            .AsNoTracking()
+            .Where(b => !b.IsCancelled
+                        && b.InstructorId == instructorId
+                        && b.StartAt >= rangeStart
+                        && b.StartAt < rangeEnd)
+            .Select(b => new
+            {
+                b.Id,
+                b.StartAt,
+                b.Participants,
+                Minutes = b.LessonDuration != null ? b.LessonDuration.Minutes : 0
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(b => (b.Id, b.StartAt, b.Participants, b.Minutes)).ToList();
+    }
+
+    private List<BookingSlotViewModel> BuildFreeSlots(
+        Instructor instructor,
+        DateOnly date,
+        IReadOnlyList<InstructorAvailability> windows,
+        IReadOnlyList<(int Id, DateTime StartAt, int Participants, int Minutes)> bookings,
+        int durationMinutes,
+        int participants,
+        int? excludeBookingId,
+        DateTime now)
+    {
         var slots = new List<BookingSlotViewModel>();
 
         foreach (var window in windows)
@@ -158,12 +217,11 @@ public class AvailabilityService(
                 if (cursor >= now)
                 {
                     var slotEnd = cursor.AddMinutes(durationMinutes);
-                    var occupied = await _capacity.GetOccupiedParticipantsAsync(
-                        instructorId,
+                    var occupied = _capacity.GetOccupiedParticipants(
+                        bookings,
                         cursor,
                         slotEnd,
-                        excludeBookingId,
-                        cancellationToken);
+                        excludeBookingId);
                     var remaining = instructor.MaxParticipants - occupied;
 
                     if (remaining >= participants)

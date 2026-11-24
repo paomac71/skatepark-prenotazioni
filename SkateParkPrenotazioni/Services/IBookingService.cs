@@ -34,4 +34,12 @@ public interface IBookingService
         CancellationToken cancellationToken = default);
 
     Task<int?> GetDurationMinutesAsync(int lessonDurationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Restituisce excludeBookingId solo se appartiene all'utente; altrimenti null.
+    /// </summary>
+    Task<int?> ResolveOwnedExcludeBookingIdAsync(
+        string userId,
+        int? excludeBookingId,
+        CancellationToken cancellationToken = default);
 }

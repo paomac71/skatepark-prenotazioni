@@ -4,9 +4,12 @@ using SkateParkPrenotazioni.Models;
 
 namespace SkateParkPrenotazioni.Services;
 
-public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityService
+public class BookingCapacityService(
+    ApplicationDbContext db,
+    IAppClock clock) : IBookingCapacityService
 {
     private readonly ApplicationDbContext _db = db;
+    private readonly IAppClock _clock = clock;
 
     public async Task<(bool Ok, string? Error)> ValidateAsync(
         int instructorId,
@@ -41,7 +44,7 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
             return (false, $"L'istruttore ammette al massimo {instructor.MaxParticipants} partecipanti.");
         }
 
-        if (startAt < DateTime.Now.AddMinutes(-1))
+        if (startAt < _clock.Now.AddMinutes(-1))
         {
             return (false, "Non è possibile prenotare uno slot nel passato.");
         }
@@ -90,6 +93,19 @@ public class BookingCapacityService(ApplicationDbContext db) : IBookingCapacityS
             })
             .ToListAsync(cancellationToken);
 
+        return GetOccupiedParticipants(
+            bookings.Select(b => (b.Id, b.StartAt, b.Participants, b.Minutes)),
+            slotStart,
+            slotEnd,
+            excludeBookingId);
+    }
+
+    public int GetOccupiedParticipants(
+        IEnumerable<(int Id, DateTime StartAt, int Participants, int Minutes)> bookings,
+        DateTime slotStart,
+        DateTime slotEnd,
+        int? excludeBookingId = null)
+    {
         var occupied = 0;
         foreach (var booking in bookings)
         {

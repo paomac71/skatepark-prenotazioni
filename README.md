@@ -41,7 +41,15 @@ File: `SkateParkPrenotazioni/appsettings.json`
 - **Authentication:Google** — sostituisci `YOUR_GOOGLE_CLIENT_ID` / `YOUR_GOOGLE_CLIENT_SECRET` con le credenziali della Google Cloud Console (redirect URI Identity: `/signin-google`)
 - **Weather** — `Latitude`, `Longitude`, `Timezone` (default Milano)
 
-Non committare secret reali: usa User Secrets o variabili d’ambiente in produzione.
+Non committare secret reali: usa User Secrets o variabili d’ambiente.
+
+```bash
+cd SkateParkPrenotazioni
+dotnet user-secrets set "AdminSeed:Email" "admin@skatepark.local"
+dotnet user-secrets set "AdminSeed:Password" "Admin123!"
+```
+
+Il calendario usa il fuso `Weather:Timezone` (default `Europe/Rome`).
 
 ## Funzionalità MVP
 
@@ -65,7 +73,7 @@ All’avvio vengono applicate le migrazioni e, se il DB è vuoto, creati:
 
 - 3 istruttori (Luca, Giulia, Marco) con fasce orarie settimanali di esempio
 - 3 durate lezione (30 / 60 / 90 minuti)
-- Ruolo `Admin`; in Development, utente `admin@skatepark.local` / `Admin123!` (da `AdminSeed` in `appsettings.Development.json`) per `/Instructors/Manage`
+- Ruolo `Admin`; in Development configura `AdminSeed:Email` / `AdminSeed:Password` via **User Secrets** o variabili d’ambiente (non commitare password). Placeholder in `appsettings.Development.json`.
 
 ## Struttura
 

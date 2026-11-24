@@ -19,4 +19,10 @@ public interface IBookingCapacityService
         DateTime slotEnd,
         int? excludeBookingId = null,
         CancellationToken cancellationToken = default);
+
+    int GetOccupiedParticipants(
+        IEnumerable<(int Id, DateTime StartAt, int Participants, int Minutes)> bookings,
+        DateTime slotStart,
+        DateTime slotEnd,
+        int? excludeBookingId = null);
 }
